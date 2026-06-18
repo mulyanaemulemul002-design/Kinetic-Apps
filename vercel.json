@@ -2,12 +2,6 @@
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "nodejs": "20.x",
-  "env": {
-    "VITE_MINING_ADDRESS": "@VITE_MINING_ADDRESS",
-    "VITE_TOKEN_ADDRESS": "@VITE_TOKEN_ADDRESS",
-    "VITE_ALLOCATION_ADDRESS": "@VITE_ALLOCATION_ADDRESS"
-  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
