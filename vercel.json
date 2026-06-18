@@ -1,7 +1,13 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "nodejs": "20.x",
+  "env": {
+    "VITE_MINING_ADDRESS": "@VITE_MINING_ADDRESS",
+    "VITE_TOKEN_ADDRESS": "@VITE_TOKEN_ADDRESS",
+    "VITE_ALLOCATION_ADDRESS": "@VITE_ALLOCATION_ADDRESS"
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
@@ -10,6 +16,12 @@
       "source": "/assets/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
       ]
     }
   ]

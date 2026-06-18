@@ -33,3 +33,5 @@ npm-debug.log*
 # Hardhat
 artifacts/
 cache/
+package-lock.json
+.vercel/
