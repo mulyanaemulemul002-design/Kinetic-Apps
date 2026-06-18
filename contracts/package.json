@@ -1,0 +1,17 @@
+{
+  "name": "kinetic-dao-contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat compile && node ../scripts/deploy-all.mjs",
+    "deploy:allocation": "node ../scripts/deploy-allocation.mjs"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^4.0.13",
+    "@openzeppelin/contracts": "^5.6.1",
+    "ethers": "^6.16.0",
+    "hardhat": "^3.9.0"
+  }
+}
