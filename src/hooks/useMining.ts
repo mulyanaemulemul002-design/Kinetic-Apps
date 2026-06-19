@@ -127,7 +127,35 @@ export function useUserMiningStats(address?: `0x${string}`) {
   })
 }
 
-// ─── Real-time live mining counter ────────────────────────────────────────────
+// ─── Real-time KNTC counter (fixed rate: 0.045 KNTC/h = 1.08 KNTC/day) ───────
+
+const KNTC_PER_SECOND = 0.045 / 3600   // 0.000012500 KNTC/s
+const SESSION_MAX_S   = 24 * 3600
+
+export function useRealTimeKNTC(lastMiningTime: number, isActive: boolean): string {
+  const [kntc, setKntc] = useState('0.000000')
+
+  useEffect(() => {
+    if (!isActive || lastMiningTime === 0) {
+      setKntc('0.000000')
+      return
+    }
+
+    function calculate() {
+      const now     = Math.floor(Date.now() / 1000)
+      const elapsed = Math.min(now - lastMiningTime, SESSION_MAX_S)
+      setKntc((elapsed * KNTC_PER_SECOND).toFixed(6))
+    }
+
+    calculate()
+    const id = setInterval(calculate, 1000)
+    return () => clearInterval(id)
+  }, [lastMiningTime, isActive])
+
+  return kntc
+}
+
+// ─── Legacy — kept for any existing callers ───────────────────────────────────
 
 export function useRealTimeMining(
   lastMiningTime: number,
@@ -142,11 +170,9 @@ export function useRealTimeMining(
       return
     }
 
-    const SESSION_MAX = 24 * 3600
-
     function calculate() {
-      const now     = Math.floor(Date.now() / 1000)
-      const elapsed = Math.min(now - lastMiningTime, SESSION_MAX)
+      const now        = Math.floor(Date.now() / 1000)
+      const elapsed    = Math.min(now - lastMiningTime, SESSION_MAX_S)
       const sessionPts = (BigInt(elapsed) * ratePerHour) / 3600n
       setLivePoints(accumulatedPoints + sessionPts)
     }

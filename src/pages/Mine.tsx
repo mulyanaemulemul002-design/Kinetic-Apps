@@ -2,15 +2,13 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Zap, Clock, Key, PlusCircle, ExternalLink } from 'lucide-react'
 import { useWalletContext } from '../context/WalletContext'
-import { useUserMiningStats, useCurrentRank, useRealTimeMining, useMiningCountdown } from '../hooks/useMining'
+import { useUserMiningStats, useCurrentRank, useRealTimeKNTC, useMiningCountdown } from '../hooks/useMining'
 import AdModal from '../components/AdModal'
 import MiningResult from '../components/MiningResult'
 import {
   publicClient, MINING_ADDRESS, KINETIC_MINING_ABI,
-  TIER_LABEL, TIER_COLOR, TIER_RATE, TIER_CHANCE,
   RANK_COLOR, RANK_NAME,
-  formatPoints, formatRate, formatDuration,
-  type RewardTier,
+  formatDuration,
 } from '../lib/chain'
 
 type Phase = 'idle' | 'ad' | 'mining' | 'result'
@@ -20,7 +18,7 @@ export default function Mine() {
   const queryClient = useQueryClient()
 
   const [phase,       setPhase]       = useState<Phase>('idle')
-  const [result,      setResult]      = useState<{ ratePerHour: bigint; tier: number; txHash: `0x${string}` } | null>(null)
+  const [txHash,      setTxHash]      = useState<`0x${string}` | null>(null)
   const [mineError,   setMineError]   = useState<string | null>(null)
   const [importMode,  setImportMode]  = useState(false)
   const [pkInput,     setPkInput]     = useState('')
@@ -32,20 +30,19 @@ export default function Mine() {
 
   const canMine      = stats?.canMine         ?? true
   const cooldownSecs = Number(stats?.cooldown        ?? 0n)
-  const ratePerHour  = stats?.ratePerHour     ?? 0n
   const lastMineAt   = Number(stats?.lastMineAt      ?? 0n)
-  const accumulated  = stats?.pendingClaim    ?? 0n
   const sessionLeft  = Number(stats?.sessionTimeLeft ?? 0n)
   const cycleCount   = Number(stats?.cycleCount      ?? 0n)
-  const estimatedKNTC= stats?.estimatedKNTC   ?? 0n
   const rank         = rankData?.rank         ?? 1
   const rankPct      = rankData?.quotaFillPct ?? 0
 
-  const livePoints      = useRealTimeMining(lastMineAt, ratePerHour, accumulated)
+  const isSessionActive = lastMineAt > 0 && !canMine
+  const liveKNTC = useRealTimeKNTC(lastMineAt, isSessionActive)
+
   const { remaining: cooldownRemain } = useMiningCountdown(cooldownSecs)
   const { remaining: sessionRemain  } = useMiningCountdown(sessionLeft)
 
-  const d = formatDuration(cooldownRemain)
+  const d  = formatDuration(cooldownRemain)
   const ds = formatDuration(sessionRemain)
 
   async function handleAdComplete() {
@@ -56,26 +53,8 @@ export default function Mine() {
         abi:          KINETIC_MINING_ABI,
         functionName: 'mine',
       })
-      const receipt = await publicClient.waitForTransactionReceipt({ hash })
-
-      let rate = 0n
-      let tier = 1
-      for (const log of receipt.logs) {
-        if (log.address.toLowerCase() !== MINING_ADDRESS.toLowerCase()) continue
-        try {
-          const { decodeEventLog } = await import('viem')
-          const decoded = decodeEventLog({
-            abi:       KINETIC_MINING_ABI,
-            eventName: 'MiningSessionStarted',
-            data:      log.data,
-            topics:    log.topics as [`0x${string}`, ...`0x${string}`[]],
-          })
-          if (decoded.args && 'ratePerHour' in decoded.args) rate = decoded.args.ratePerHour as bigint
-          if (decoded.args && 'tier'        in decoded.args) tier = Number(decoded.args.tier)
-          break
-        } catch {}
-      }
-      setResult({ ratePerHour: rate, tier, txHash: hash })
+      await publicClient.waitForTransactionReceipt({ hash })
+      setTxHash(hash)
       setPhase('result')
       queryClient.invalidateQueries({ queryKey: ['userDashboard', address] })
       queryClient.invalidateQueries({ queryKey: ['miningEvents'] })
@@ -102,7 +81,6 @@ export default function Mine() {
     return (
       <div className="max-w-md mx-auto px-4 py-16 flex flex-col items-center gap-6 animate-fade-in">
 
-        {/* Logo */}
         <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
           style={{ background: 'linear-gradient(135deg,#5ac8f0,#A8E6FF)', boxShadow: '0 0 40px rgba(168,230,255,0.35)' }}>
           <Zap className="w-9 h-9 text-[#001020]" />
@@ -114,12 +92,11 @@ export default function Mine() {
           </p>
         </div>
 
-        {/* Feature rows */}
         <div className="w-full flex flex-col gap-3">
           {[
             { text: 'Watch 15–30s ads to trigger mining cycles' },
             { text: 'Every cycle recorded on KNTC blockchain'   },
-            { text: 'Claim real KNTC tokens after TGE'          },
+            { text: 'Earn 0.045 KNTC/h — 1.08 KNTC per day'    },
           ].map(({ text }) => (
             <div key={text} className="card flex items-center gap-3 px-4 py-3">
               <div className="w-2 h-2 rounded-full bg-[#A8E6FF] shrink-0" />
@@ -130,7 +107,6 @@ export default function Mine() {
 
         {!importMode ? (
           <div className="w-full flex flex-col gap-3">
-            {/* MetaMask */}
             {typeof window !== 'undefined' && (window as any).ethereum && (
               <button onClick={connectMetaMask} disabled={isConnecting} className="btn-primary w-full justify-center">
                 <Zap className="w-4 h-4" />
@@ -138,13 +114,11 @@ export default function Mine() {
               </button>
             )}
 
-            {/* Generate embedded wallet */}
             <button onClick={generateWallet} className="btn-secondary w-full justify-center">
               <PlusCircle className="w-4 h-4" />
               Generate New Wallet
             </button>
 
-            {/* Import private key */}
             <button onClick={() => setImportMode(true)} className="btn-ghost w-full justify-center text-sm">
               <Key className="w-4 h-4" />
               Import Private Key
@@ -158,7 +132,7 @@ export default function Mine() {
           <div className="w-full flex flex-col gap-3">
             <button onClick={() => { setImportMode(false); setImportError(null) }}
               className="btn-ghost self-start text-sm">
-              ← Back
+              Back
             </button>
             <label className="text-xs font-semibold text-muted">Private Key (0x...)</label>
             <textarea
@@ -169,9 +143,7 @@ export default function Mine() {
               onChange={e => setPkInput(e.target.value)}
               style={{ fontFamily: 'JetBrains Mono, monospace' }}
             />
-            {importError && (
-              <p className="text-xs text-[#ff9090]">{importError}</p>
-            )}
+            {importError && <p className="text-xs text-[#ff9090]">{importError}</p>}
             <button onClick={handleImport} disabled={importing || !pkInput.trim()}
               className="btn-primary w-full justify-center">
               {importing ? 'Importing...' : 'Import Wallet'}
@@ -186,7 +158,6 @@ export default function Mine() {
   return (
     <div className="max-w-xl mx-auto px-4 py-8 flex flex-col gap-5 animate-fade-in">
 
-      {/* Ad overlay */}
       {phase === 'ad' && <AdModal onComplete={handleAdComplete} />}
 
       {/* Pre-TGE notice */}
@@ -195,8 +166,7 @@ export default function Mine() {
         <div className="w-1.5 h-1.5 rounded-full bg-[#A8E6FF] mt-0.5 shrink-0" />
         <span style={{ color: '#4a6a7a' }}>
           <span className="text-[#A8E6FF] font-bold">Pre-TGE — </span>
-          Mining earns on-chain Kinetic Credits. Real KNTC claimable after TGE.
-          Blueprint Phase 1: rank-based halving active.
+          Mining earns KNTC at a fixed rate. Real KNTC claimable after TGE.
         </span>
       </div>
 
@@ -218,28 +188,13 @@ export default function Mine() {
       </div>
 
       {/* Result or mining UI */}
-      {phase === 'result' && result ? (
+      {phase === 'result' && txHash ? (
         <MiningResult
-          ratePerHour={result.ratePerHour}
-          tier={result.tier}
-          txHash={result.txHash}
-          onReset={() => { setResult(null); setPhase('idle') }}
+          txHash={txHash}
+          onReset={() => { setTxHash(null); setPhase('idle') }}
         />
       ) : (
         <>
-          {/* Tier legend */}
-          <div className="grid grid-cols-3 gap-2">
-            {([0, 1, 2] as RewardTier[]).map(t => (
-              <div key={t} className="card p-3 flex flex-col items-center gap-1 text-center"
-                style={{ borderColor: `${TIER_COLOR[t]}25` }}>
-                <div className="w-2 h-2 rounded-full mb-1" style={{ background: TIER_COLOR[t] }} />
-                <span className="text-[11px] font-black" style={{ color: TIER_COLOR[t] }}>{TIER_LABEL[t]}</span>
-                <span className="text-subtle text-[9px]">{TIER_RATE[t]}</span>
-                <span className="text-[10px]" style={{ color: '#4a6a7a' }}>{TIER_CHANCE[t]}</span>
-              </div>
-            ))}
-          </div>
-
           {/* Mine card */}
           <div className="card overflow-hidden">
             {/* Status bar */}
@@ -250,15 +205,13 @@ export default function Mine() {
                 <span className="text-sm font-bold" style={{ color: '#b8dcf0' }}>
                   {isLoading ? 'Loading...' :
                    phase === 'mining' ? 'Broadcasting...' :
-                   canMine ? 'Ready to Mine' : 'Cooldown Active'}
+                   canMine ? 'Ready to Mine' : 'Mining Active'}
                 </span>
               </div>
-              {ratePerHour > 0n && (
-                <span className="text-xs font-bold px-2 py-1 rounded-lg"
-                  style={{ background: 'rgba(255,208,96,0.1)', border: '1px solid rgba(255,208,96,0.25)', color: '#ffd060' }}>
-                  {formatRate(ratePerHour)}
-                </span>
-              )}
+              <span className="text-xs font-bold px-2 py-1 rounded-lg"
+                style={{ background: 'rgba(96,255,176,0.08)', border: '1px solid rgba(96,255,176,0.2)', color: '#60ffb0' }}>
+                0.045 KNTC/h
+              </span>
             </div>
 
             {/* Center */}
@@ -285,16 +238,16 @@ export default function Mine() {
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <Clock className="w-7 h-7 text-muted" />
-                  <span className="text-muted text-sm">Next cycle in</span>
+                  <span className="text-muted text-sm">Session ends in</span>
                   <span className="font-mono text-4xl font-black text-white">
-                    {d.h}:{d.m}:{d.s}
+                    {ds.h}:{ds.m}:{ds.s}
                   </span>
-                  <span className="text-subtle text-xs">Cooldown resets every 24 hours</span>
+                  <span className="text-subtle text-xs">Next mine available after cooldown</span>
+                  <span className="text-subtle text-xs">Cooldown: {d.h}:{d.m}:{d.s}</span>
                 </div>
               )}
             </div>
 
-            {/* Error */}
             {mineError && (
               <div className="mx-4 mb-4 px-3 py-2 rounded-xl text-xs text-[#ff9090] flex items-center gap-2"
                 style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)' }}>
@@ -304,17 +257,17 @@ export default function Mine() {
             )}
           </div>
 
-          {/* Live counter */}
-          {ratePerHour > 0n && (
+          {/* Live KNTC counter */}
+          {isSessionActive && (
             <div className="flex flex-col items-center gap-1 py-5 px-4 rounded-2xl"
               style={{ background: 'rgba(96,255,176,0.04)', border: '1px solid rgba(96,255,176,0.15)' }}>
               <span className="text-[9px] font-bold tracking-[2px] text-muted uppercase">Live Mining Counter</span>
               <span className="font-mono text-4xl font-black" style={{ color: '#60ffb0' }}>
-                {formatPoints(livePoints)}
+                {liveKNTC}
               </span>
-              <span className="text-muted text-xs">credits accumulated</span>
+              <span className="text-muted text-xs">KNTC accumulated this session</span>
               <div className="flex items-center gap-4 mt-2 text-xs text-muted">
-                <span>Rate: <span className="text-[#ffd060]">{formatRate(ratePerHour)}</span></span>
+                <span>Rate: <span className="text-[#60ffb0]">0.045 KNTC/h</span></span>
                 <span className="opacity-20">|</span>
                 <span>Session: <span className="text-[#A8E6FF]">{ds.h}:{ds.m}:{ds.s}</span></span>
               </div>
@@ -324,9 +277,9 @@ export default function Mine() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: 'Cycles',    value: cycleCount.toString(),                                          color: '#A8E6FF' },
-              { label: 'Credits',   value: formatPoints(livePoints),                                       color: '#60ffb0' },
-              { label: 'Est. KNTC', value: estimatedKNTC > 0n ? `~${Math.floor(Number(estimatedKNTC) / 1e18)}` : '—', color: '#ffd060' },
+              { label: 'Cycles',    value: cycleCount.toString(),  color: '#A8E6FF' },
+              { label: 'KNTC/h',   value: '0.045',                color: '#60ffb0' },
+              { label: 'Per Day',   value: '1.08',                 color: '#ffd060' },
             ].map(({ label, value, color }) => (
               <div key={label} className="card p-4 flex flex-col items-center gap-1">
                 <span className="font-black text-xl" style={{ color }}>{value}</span>

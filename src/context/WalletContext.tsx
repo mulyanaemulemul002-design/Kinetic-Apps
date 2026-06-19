@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useAccount, useConnect, useDisconnect, useWriteContract, useSwitchChain } from 'wagmi'
+import { injected } from 'wagmi/connectors'
 import { privateKeyToAccount } from 'viem/accounts'
 import { createWalletClient, http } from 'viem'
 import { maculatusTestnet } from '../lib/chain'
-import { connectWallet, switchToMaculatus, getWalletClient } from '../lib/wallet'
 
 const STORE_KEY = 'kineticdao_pk'
 const RPC_URL   = 'https://maculatus-rpc.x1eco.com'
@@ -16,7 +17,7 @@ export interface WalletCtx {
   isConnecting:     boolean
   isOnCorrectChain: boolean
   error:            string | null
-  connectMetaMask:  () => Promise<void>
+  connectMetaMask:  () => void
   generateWallet:   () => void
   importWallet:     (pk: string) => Promise<void>
   disconnect:       () => void
@@ -33,11 +34,11 @@ interface WriteContractArgs {
 const WalletContext = createContext<WalletCtx>({
   address: null, walletType: null, privateKey: null,
   isConnecting: false, isOnCorrectChain: false, error: null,
-  connectMetaMask: async () => {},
-  generateWallet: () => {},
-  importWallet: async () => {},
-  disconnect: () => {},
-  writeContract: async () => { throw new Error('No wallet') },
+  connectMetaMask: () => {},
+  generateWallet:  () => {},
+  importWallet:    async () => {},
+  disconnect:      () => {},
+  writeContract:   async () => { throw new Error('No wallet') },
 })
 
 function generateRandomPrivateKey(): string {
@@ -47,85 +48,55 @@ function generateRandomPrivateKey(): string {
 }
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const [address,          setAddress]          = useState<`0x${string}` | null>(null)
-  const [walletType,       setWalletType]       = useState<WalletType>(null)
-  const [privateKey,       setPrivateKey]       = useState<string | null>(null)
-  const [isConnecting,     setIsConnecting]     = useState(false)
-  const [isOnCorrectChain, setIsOnCorrectChain] = useState(false)
-  const [error,            setError]            = useState<string | null>(null)
+  // ── wagmi (external / injected wallets) ──────────────────────────────────────
+  const { address: wagmiAddress, chainId, isConnected } = useAccount()
+  const { connect, isPending: isWagmiConnecting }       = useConnect()
+  const { disconnect: wagmiDisconnect }                 = useDisconnect()
+  const { writeContractAsync }                          = useWriteContract()
+  const { switchChain }                                 = useSwitchChain()
 
-  // On mount: restore embedded wallet OR check MetaMask
+  // ── Embedded wallet (local private key) ──────────────────────────────────────
+  const [embeddedAddress, setEmbeddedAddress] = useState<`0x${string}` | null>(null)
+  const [privateKey,      setPrivateKey]      = useState<string | null>(null)
+  const [error,           setError]           = useState<string | null>(null)
+
+  // Restore embedded wallet on mount (only if no wagmi wallet connected)
   useEffect(() => {
+    if (isConnected) return
     const pk = localStorage.getItem(STORE_KEY)
     if (pk) {
       try {
         const account = privateKeyToAccount(pk as `0x${string}`)
         setPrivateKey(pk)
-        setAddress(account.address)
-        setWalletType('embedded')
-        setIsOnCorrectChain(true)
-        return
+        setEmbeddedAddress(account.address)
       } catch { localStorage.removeItem(STORE_KEY) }
     }
+  }, [isConnected])
 
-    // Check if MetaMask is already connected
-    if (window.ethereum) {
-      window.ethereum.request({ method: 'eth_accounts' })
-        .then((accs: unknown) => {
-          const a = accs as `0x${string}`[]
-          if (a.length > 0) {
-            setAddress(a[0])
-            setWalletType('metamask')
-            window.ethereum!.request({ method: 'eth_chainId' }).then((hex: unknown) => {
-              const chainId = parseInt(hex as string, 16)
-              setIsOnCorrectChain(chainId === maculatusTestnet.id)
-            })
-          }
-        }).catch(() => {})
-    }
-  }, [])
-
-  // MetaMask event listeners
+  // Auto-switch to Maculatus Testnet after wagmi connects
   useEffect(() => {
-    if (!window.ethereum || walletType !== 'metamask') return
-    const onAccounts = (accs: unknown) => {
-      const a = accs as `0x${string}`[]
-      setAddress(a[0] ?? null)
-      if (!a[0]) { setWalletType(null); setIsOnCorrectChain(false) }
+    if (wagmiAddress && chainId !== maculatusTestnet.id) {
+      switchChain({ chainId: maculatusTestnet.id })
     }
-    const onChain = (hex: unknown) => {
-      setIsOnCorrectChain(parseInt(hex as string, 16) === maculatusTestnet.id)
-    }
-    window.ethereum.on('accountsChanged', onAccounts)
-    window.ethereum.on('chainChanged',    onChain)
-    return () => {
-      window.ethereum?.removeListener('accountsChanged', onAccounts)
-      window.ethereum?.removeListener('chainChanged',    onChain)
-    }
-  }, [walletType])
+  }, [wagmiAddress, chainId, switchChain])
 
-  const connectMetaMask = useCallback(async () => {
-    setIsConnecting(true); setError(null)
-    try {
-      const accounts = await connectWallet()
-      await switchToMaculatus()
-      const chainHex = await window.ethereum!.request({ method: 'eth_chainId' }) as string
-      setAddress(accounts[0])
-      setWalletType('metamask')
-      setIsOnCorrectChain(parseInt(chainHex, 16) === maculatusTestnet.id)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to connect')
-    } finally { setIsConnecting(false) }
-  }, [])
+  // Derived state
+  const address:          `0x${string}` | null = wagmiAddress ?? embeddedAddress
+  const walletType:       WalletType           = wagmiAddress ? 'metamask' : embeddedAddress ? 'embedded' : null
+  const isOnCorrectChain: boolean              = wagmiAddress ? chainId === maculatusTestnet.id : !!embeddedAddress
+  const isConnecting:     boolean              = isWagmiConnecting
+
+  const connectMetaMask = useCallback(() => {
+    setError(null)
+    connect({ connector: injected() })
+  }, [connect])
 
   const generateWallet = useCallback(() => {
     const pk      = generateRandomPrivateKey()
     const account = privateKeyToAccount(pk as `0x${string}`)
     localStorage.setItem(STORE_KEY, pk)
     setPrivateKey(pk)
-    setAddress(account.address)
-    setWalletType('embedded')
-    setIsOnCorrectChain(true)
+    setEmbeddedAddress(account.address)
     setError(null)
   }, [])
 
@@ -134,32 +105,36 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const account = privateKeyToAccount(clean)
     localStorage.setItem(STORE_KEY, clean)
     setPrivateKey(clean)
-    setAddress(account.address)
-    setWalletType('embedded')
-    setIsOnCorrectChain(true)
+    setEmbeddedAddress(account.address)
     setError(null)
   }, [])
 
   const disconnect = useCallback(() => {
+    if (wagmiAddress) {
+      wagmiDisconnect()
+    }
     localStorage.removeItem(STORE_KEY)
-    setAddress(null); setWalletType(null); setPrivateKey(null)
-    setIsOnCorrectChain(false); setError(null)
-  }, [])
+    setEmbeddedAddress(null)
+    setPrivateKey(null)
+    setError(null)
+  }, [wagmiAddress, wagmiDisconnect])
 
   const writeContract = useCallback(async (args: WriteContractArgs): Promise<`0x${string}`> => {
+    if (walletType === 'metamask') {
+      return writeContractAsync({
+        address:      args.address,
+        abi:          args.abi as any,
+        functionName: args.functionName,
+        args:         args.args as any,
+      })
+    }
     if (walletType === 'embedded' && privateKey) {
       const account = privateKeyToAccount(privateKey as `0x${string}`)
       const wc = createWalletClient({ account, chain: maculatusTestnet, transport: http(RPC_URL) })
       return wc.writeContract({ ...args, abi: args.abi as any, account })
     }
-    if (walletType === 'metamask') {
-      const wc = getWalletClient()
-      if (!wc) throw new Error('No wallet client')
-      const [account] = await wc.getAddresses()
-      return wc.writeContract({ ...args, abi: args.abi as any, account, chain: null })
-    }
     throw new Error('No wallet connected')
-  }, [walletType, privateKey])
+  }, [walletType, privateKey, writeContractAsync])
 
   return (
     <WalletContext.Provider value={{

@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.png'],
       manifest: {
         name: 'KineticDAO',
         short_name: 'KineticDAO',
@@ -19,18 +19,16 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         icons: [
-          { src: '/pwa-192.svg', sizes: '192x192', type: 'image/svg+xml' },
-          { src: '/pwa-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
-          { src: '/favicon.svg', sizes: 'any',     type: 'image/svg+xml' },
+          { src: '/favicon.png', sizes: '1024x1024', type: 'image/png', purpose: 'any maskable' },
         ],
         categories: ['finance', 'productivity'],
         shortcuts: [
-          { name: 'Mine', short_name: 'Mine', description: 'Start mining', url: '/mine', icons: [{ src: '/favicon.svg', sizes: 'any' }] },
-          { name: 'Activity', short_name: 'Activity', description: 'View live activity', url: '/activity', icons: [{ src: '/favicon.svg', sizes: 'any' }] },
+          { name: 'Mine', short_name: 'Mine', description: 'Start mining', url: '/mine', icons: [{ src: '/favicon.png', sizes: '1024x1024' }] },
+          { name: 'Activity', short_name: 'Activity', description: 'View live activity', url: '/activity', icons: [{ src: '/favicon.png', sizes: '1024x1024' }] },
         ],
       },
       workbox: {
-        globPatterns:    ['**/*.{js,css,html,ico,svg,woff2}'],
+        globPatterns:    ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
             urlPattern:  /^https:\/\/maculatus-rpc\.x1eco\.com\/.*/i,
