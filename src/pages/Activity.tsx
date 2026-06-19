@@ -154,8 +154,8 @@ export default function ActivityPage() {
           events. Coverage: last 10,000 blocks, refreshes every 30 seconds.
         </p>
         <p className="text-muted text-sm leading-relaxed mt-2">
-          <span className="text-[#ffd060] font-semibold">Blueprint Phase 1 rates:</span>{' '}
-          Apes 10K · Basic 50K · Hoki 200K pts/h (Rank 1). Halved at 500B (Rank 2) and 750B (Rank 3) global points.
+          <span className="text-[#ffd060] font-semibold">Fixed mining rate:</span>{' '}
+          0.045 KNTC/h per session. Rank halving auto-applies at 500B pts (Rank 2, ×0.5) and 750B pts (Rank 3, ×0.25).
         </p>
       </div>
     </div>

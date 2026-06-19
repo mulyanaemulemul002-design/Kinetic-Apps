@@ -17,7 +17,6 @@ export default function EventRow({ user, timestamp, ratePerHour, tier, txHash, b
 
   const safeTier = (typeof tier === 'number' && tier in TIER_LABEL ? tier : 1) as RewardTier
   const color    = TIER_COLOR[safeTier]
-  const label    = TIER_LABEL[safeTier]
 
   return (
     <div className={`flex items-center gap-3 px-4 py-3 transition-all duration-200 group hover:bg-[rgba(168,230,255,0.03)] ${
@@ -36,8 +35,7 @@ export default function EventRow({ user, timestamp, ratePerHour, tier, txHash, b
             className="font-mono text-sm text-[rgba(168,230,255,0.7)] hover:text-[#A8E6FF] transition-colors">
             {formatAddress(user)}
           </a>
-          <span className="text-subtle text-xs">started</span>
-          <span className="text-xs font-semibold" style={{ color }}>{label}</span>
+          <span className="text-subtle text-xs">started mining</span>
         </div>
         <div className="text-subtle text-xs mt-0.5">
           {timeAgo(timestamp)} · Block #{blockNumber.toString()}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Zap, Clock, Key, PlusCircle, ExternalLink } from 'lucide-react'
+import { Wallet, Zap, Clock, Key, PlusCircle, ExternalLink } from 'lucide-react'
 import { useWalletContext } from '../context/WalletContext'
 import { useUserMiningStats, useCurrentRank, useRealTimeKNTC, useMiningCountdown } from '../hooks/useMining'
 import AdModal from '../components/AdModal'
@@ -79,93 +79,112 @@ export default function Mine() {
 
   if (!address) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 flex flex-col items-center gap-6 animate-fade-in">
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12 animate-fade-in">
+        <div className="w-full max-w-[360px] flex flex-col items-center gap-7">
 
-        <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg,#5ac8f0,#A8E6FF)', boxShadow: '0 0 40px rgba(168,230,255,0.35)' }}>
-          <Zap className="w-9 h-9 text-[#001020]" />
-        </div>
-        <div className="text-center">
-          <h1 className="text-2xl font-black text-white mb-2">Connect to Mine</h1>
-          <p className="text-muted text-sm leading-relaxed">
-            Connect a wallet to start watching ads and earning KNTC on-chain.
-          </p>
-        </div>
+          {/* Glow icon */}
+          <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg,#5ac8f0,#A8E6FF)', boxShadow: '0 0 60px rgba(168,230,255,0.28)' }}>
+            <Zap className="w-9 h-9 text-[#001020]" />
+          </div>
 
-        <div className="w-full flex flex-col gap-3">
-          {[
-            { text: 'Watch 15–30s ads to trigger mining cycles' },
-            { text: 'Every cycle recorded on KNTC blockchain'   },
-            { text: 'Earn 0.045 KNTC/h — 1.08 KNTC per day'    },
-          ].map(({ text }) => (
-            <div key={text} className="card flex items-center gap-3 px-4 py-3">
-              <div className="w-2 h-2 rounded-full bg-[#A8E6FF] shrink-0" />
-              <span className="text-sm" style={{ color: '#b8dcf0' }}>{text}</span>
-            </div>
-          ))}
-        </div>
-
-        {!importMode ? (
-          <div className="w-full flex flex-col gap-3">
-            {/* WalletConnect — works with Trust Wallet, Rainbow, MetaMask Mobile, etc. */}
-            <button onClick={connectWalletConnect} disabled={isConnecting} className="btn-primary w-full justify-center">
-              <Zap className="w-4 h-4" />
-              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-            </button>
-
-            {/* MetaMask browser extension (desktop) */}
-            {typeof window !== 'undefined' && (window as any).ethereum && (
-              <button onClick={connectMetaMask} disabled={isConnecting}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                style={{ background: 'rgba(168,230,255,0.06)', border: '1px solid rgba(168,230,255,0.14)', color: '#A8E6FF' }}>
-                <Zap className="w-4 h-4" />
-                MetaMask Extension
-              </button>
-            )}
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-[rgba(168,230,255,0.08)]" />
-              <span className="text-subtle text-xs">or use embedded wallet</span>
-              <div className="flex-1 h-px bg-[rgba(168,230,255,0.08)]" />
-            </div>
-
-            <button onClick={generateWallet} className="btn-secondary w-full justify-center">
-              <PlusCircle className="w-4 h-4" />
-              Generate New Wallet
-            </button>
-
-            <button onClick={() => setImportMode(true)} className="btn-ghost w-full justify-center text-sm">
-              <Key className="w-4 h-4" />
-              Import Private Key
-            </button>
-
-            <p className="text-subtle text-xs text-center leading-relaxed">
-              WalletConnect supports Trust Wallet, Rainbow, MetaMask Mobile, and 300+ wallets.
+          {/* Heading */}
+          <div className="text-center">
+            <h1 className="text-3xl font-black text-white mb-2">Start Mining</h1>
+            <p className="text-muted text-sm leading-relaxed">
+              Connect a wallet to earn KNTC by watching ads — every session recorded on-chain.
             </p>
           </div>
-        ) : (
-          <div className="w-full flex flex-col gap-3">
-            <button onClick={() => { setImportMode(false); setImportError(null) }}
-              className="btn-ghost self-start text-sm">
-              Back
-            </button>
-            <label className="text-xs font-semibold text-muted">Private Key (0x...)</label>
-            <textarea
-              className="input font-mono text-xs resize-none"
-              rows={3}
-              placeholder="0x..."
-              value={pkInput}
-              onChange={e => setPkInput(e.target.value)}
-              style={{ fontFamily: 'JetBrains Mono, monospace' }}
-            />
-            {importError && <p className="text-xs text-[#ff9090]">{importError}</p>}
-            <button onClick={handleImport} disabled={importing || !pkInput.trim()}
-              className="btn-primary w-full justify-center">
-              {importing ? 'Importing...' : 'Import Wallet'}
-            </button>
-            <p className="text-subtle text-xs text-center">For testnet use only. Key never leaves your browser.</p>
-          </div>
-        )}
+
+          {/* Feature list — inline, not boxed */}
+          <ul className="w-full space-y-3">
+            {[
+              'Watch 15–30s ads to trigger 24h mining sessions',
+              'Every session recorded on the KNTC blockchain',
+              'Fixed rate: 0.045 KNTC/h · 1.08 KNTC per day',
+            ].map(text => (
+              <li key={text} className="flex items-start gap-3 text-sm text-muted">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#A8E6FF] mt-[5px] shrink-0" />
+                {text}
+              </li>
+            ))}
+          </ul>
+
+          {/* Wallet options */}
+          {!importMode ? (
+            <div className="w-full flex flex-col gap-3">
+              {/* Primary — WalletConnect (QR + 300+ wallets) */}
+              <button
+                onClick={connectWalletConnect}
+                disabled={isConnecting}
+                className="btn-primary w-full justify-center py-3.5 text-[15px]">
+                <Wallet className="w-5 h-5" />
+                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+              </button>
+
+              {/* MetaMask extension — only shown if detected */}
+              {typeof window !== 'undefined' && (window as any).ethereum && (
+                <button
+                  onClick={connectMetaMask}
+                  disabled={isConnecting}
+                  className="btn-secondary w-full justify-center text-sm">
+                  <Zap className="w-4 h-4" />
+                  MetaMask Extension
+                </button>
+              )}
+
+              <div className="flex items-center gap-3 my-1">
+                <div className="flex-1 h-px bg-[rgba(168,230,255,0.07)]" />
+                <span className="text-subtle text-xs">or use embedded wallet</span>
+                <div className="flex-1 h-px bg-[rgba(168,230,255,0.07)]" />
+              </div>
+
+              <div className="flex gap-2 w-full">
+                <button onClick={generateWallet}
+                  className="btn-secondary flex-1 justify-center text-sm">
+                  <PlusCircle className="w-4 h-4" />
+                  Generate
+                </button>
+                <button onClick={() => setImportMode(true)}
+                  className="btn-ghost flex-1 justify-center text-sm border border-[rgba(168,230,255,0.1)]">
+                  <Key className="w-4 h-4" />
+                  Import Key
+                </button>
+              </div>
+
+              <p className="text-subtle text-[11px] text-center pt-1">
+                WalletConnect: Trust Wallet · Rainbow · MetaMask Mobile · 300+ wallets
+              </p>
+            </div>
+          ) : (
+            <div className="w-full flex flex-col gap-3">
+              <button
+                onClick={() => { setImportMode(false); setImportError(null) }}
+                className="btn-ghost self-start text-sm">
+                Back
+              </button>
+              <label className="text-xs font-semibold text-muted">Private Key (0x...)</label>
+              <textarea
+                className="input font-mono text-xs resize-none"
+                rows={3}
+                placeholder="0x..."
+                value={pkInput}
+                onChange={e => setPkInput(e.target.value)}
+                style={{ fontFamily: 'JetBrains Mono, monospace' }}
+              />
+              {importError && <p className="text-xs text-[#ff9090]">{importError}</p>}
+              <button
+                onClick={handleImport}
+                disabled={importing || !pkInput.trim()}
+                className="btn-primary w-full justify-center">
+                {importing ? 'Importing...' : 'Import Wallet'}
+              </button>
+              <p className="text-subtle text-[11px] text-center">
+                Testnet only — key stored locally, never leaves your browser.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     )
   }

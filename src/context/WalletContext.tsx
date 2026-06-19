@@ -1,9 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { useAccount, useConnect, useDisconnect, useWriteContract, useSwitchChain } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useWriteContract, useSwitchChain, useConfig } from 'wagmi'
 import { privateKeyToAccount } from 'viem/accounts'
 import { createWalletClient, http } from 'viem'
 import { maculatusTestnet } from '../lib/chain'
-import { injectedConnector, wcConnector } from '../lib/wagmi'
 
 const STORE_KEY = 'kineticdao_pk'
 const RPC_URL   = 'https://maculatus-rpc.x1eco.com'
@@ -88,15 +87,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const isOnCorrectChain: boolean              = wagmiAddress ? chainId === maculatusTestnet.id : !!embeddedAddress
   const isConnecting:     boolean              = isWagmiConnecting
 
+  const config = useConfig()
+
   const connectMetaMask = useCallback(() => {
     setError(null)
-    connect({ connector: injectedConnector })
-  }, [connect])
+    const inj = config.connectors.find(c => c.id === 'injected')
+    if (inj) connect({ connector: inj })
+  }, [connect, config])
 
   const connectWalletConnect = useCallback(() => {
     setError(null)
-    connect({ connector: wcConnector })
-  }, [connect])
+    const wc = config.connectors.find(c => c.id === 'walletConnect')
+    if (wc) connect({ connector: wc })
+  }, [connect, config])
 
   const generateWallet = useCallback(() => {
     const pk      = generateRandomPrivateKey()

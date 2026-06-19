@@ -248,9 +248,9 @@ export const MINING_CYCLE_S  = 24 * 3600  // 24 hours in seconds
 export type RewardTier = 0 | 1 | 2
 
 export const TIER_LABEL: Record<RewardTier, string> = {
-  0: 'Apes',
-  1: 'Basic',
-  2: 'Hoki',
+  0: 'Tier 1',
+  1: 'Tier 2',
+  2: 'Tier 3',
 }
 
 export const TIER_RATE: Record<RewardTier, string> = {
