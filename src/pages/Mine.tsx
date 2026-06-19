@@ -14,7 +14,7 @@ import {
 type Phase = 'idle' | 'ad' | 'mining' | 'result'
 
 export default function Mine() {
-  const { address, writeContract, connectMetaMask, generateWallet, importWallet, isConnecting } = useWalletContext()
+  const { address, writeContract, connectMetaMask, connectWalletConnect, generateWallet, importWallet, isConnecting } = useWalletContext()
   const queryClient = useQueryClient()
 
   const [phase,       setPhase]       = useState<Phase>('idle')
@@ -107,12 +107,27 @@ export default function Mine() {
 
         {!importMode ? (
           <div className="w-full flex flex-col gap-3">
+            {/* WalletConnect — works with Trust Wallet, Rainbow, MetaMask Mobile, etc. */}
+            <button onClick={connectWalletConnect} disabled={isConnecting} className="btn-primary w-full justify-center">
+              <Zap className="w-4 h-4" />
+              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+            </button>
+
+            {/* MetaMask browser extension (desktop) */}
             {typeof window !== 'undefined' && (window as any).ethereum && (
-              <button onClick={connectMetaMask} disabled={isConnecting} className="btn-primary w-full justify-center">
+              <button onClick={connectMetaMask} disabled={isConnecting}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                style={{ background: 'rgba(168,230,255,0.06)', border: '1px solid rgba(168,230,255,0.14)', color: '#A8E6FF' }}>
                 <Zap className="w-4 h-4" />
-                {isConnecting ? 'Connecting...' : 'Connect MetaMask'}
+                MetaMask Extension
               </button>
             )}
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-[rgba(168,230,255,0.08)]" />
+              <span className="text-subtle text-xs">or use embedded wallet</span>
+              <div className="flex-1 h-px bg-[rgba(168,230,255,0.08)]" />
+            </div>
 
             <button onClick={generateWallet} className="btn-secondary w-full justify-center">
               <PlusCircle className="w-4 h-4" />
@@ -125,7 +140,7 @@ export default function Mine() {
             </button>
 
             <p className="text-subtle text-xs text-center leading-relaxed">
-              Testnet only. Embedded private key stored locally in your browser. Never share your key.
+              WalletConnect supports Trust Wallet, Rainbow, MetaMask Mobile, and 300+ wallets.
             </p>
           </div>
         ) : (

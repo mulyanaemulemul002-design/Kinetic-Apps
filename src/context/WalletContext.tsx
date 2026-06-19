@@ -11,17 +11,18 @@ const RPC_URL   = 'https://maculatus-rpc.x1eco.com'
 export type WalletType = 'metamask' | 'embedded' | null
 
 export interface WalletCtx {
-  address:          `0x${string}` | null
-  walletType:       WalletType
-  privateKey:       string | null
-  isConnecting:     boolean
-  isOnCorrectChain: boolean
-  error:            string | null
-  connectMetaMask:  () => void
-  generateWallet:   () => void
-  importWallet:     (pk: string) => Promise<void>
-  disconnect:       () => void
-  writeContract:    (args: WriteContractArgs) => Promise<`0x${string}`>
+  address:              `0x${string}` | null
+  walletType:           WalletType
+  privateKey:           string | null
+  isConnecting:         boolean
+  isOnCorrectChain:     boolean
+  error:                string | null
+  connectMetaMask:      () => void
+  connectWalletConnect: () => void
+  generateWallet:       () => void
+  importWallet:         (pk: string) => Promise<void>
+  disconnect:           () => void
+  writeContract:        (args: WriteContractArgs) => Promise<`0x${string}`>
 }
 
 interface WriteContractArgs {
@@ -34,11 +35,12 @@ interface WriteContractArgs {
 const WalletContext = createContext<WalletCtx>({
   address: null, walletType: null, privateKey: null,
   isConnecting: false, isOnCorrectChain: false, error: null,
-  connectMetaMask: () => {},
-  generateWallet:  () => {},
-  importWallet:    async () => {},
-  disconnect:      () => {},
-  writeContract:   async () => { throw new Error('No wallet') },
+  connectMetaMask:      () => {},
+  connectWalletConnect: () => {},
+  generateWallet:       () => {},
+  importWallet:         async () => {},
+  disconnect:           () => {},
+  writeContract:        async () => { throw new Error('No wallet') },
 })
 
 function generateRandomPrivateKey(): string {
@@ -50,7 +52,7 @@ function generateRandomPrivateKey(): string {
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   // ── wagmi (external / injected wallets) ──────────────────────────────────────
   const { address: wagmiAddress, chainId, isConnected } = useAccount()
-  const { connect, isPending: isWagmiConnecting }       = useConnect()
+  const { connect, connectors, isPending: isWagmiConnecting } = useConnect()
   const { disconnect: wagmiDisconnect }                 = useDisconnect()
   const { writeContractAsync }                          = useWriteContract()
   const { switchChain }                                 = useSwitchChain()
@@ -88,8 +90,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const connectMetaMask = useCallback(() => {
     setError(null)
-    connect({ connector: injected() })
-  }, [connect])
+    const inj = connectors.find(c => c.id === 'injected')
+    if (inj) connect({ connector: inj })
+    else connect({ connector: injected() })
+  }, [connect, connectors])
+
+  const connectWalletConnect = useCallback(() => {
+    setError(null)
+    const wc = connectors.find(c => c.id === 'walletConnect')
+    if (wc) connect({ connector: wc })
+  }, [connect, connectors])
 
   const generateWallet = useCallback(() => {
     const pk      = generateRandomPrivateKey()
@@ -140,7 +150,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     <WalletContext.Provider value={{
       address, walletType, privateKey,
       isConnecting, isOnCorrectChain, error,
-      connectMetaMask, generateWallet, importWallet, disconnect, writeContract,
+      connectMetaMask, connectWalletConnect, generateWallet, importWallet, disconnect, writeContract,
     }}>
       {children}
     </WalletContext.Provider>
