@@ -1,13 +1,13 @@
 import { Wallet, LogOut, Loader2, AlertTriangle } from 'lucide-react'
-import { useWallet } from '../hooks/useWallet'
+import { useWalletContext } from '../context/WalletContext'
 import { formatAddress } from '../lib/chain'
 
 export default function WalletButton() {
-  const { address, isConnecting, isOnCorrectChain, connect, disconnect } = useWallet()
+  const { address, isConnecting, isOnCorrectChain, connectWalletConnect, disconnect } = useWalletContext()
 
   if (address && !isOnCorrectChain) {
     return (
-      <button onClick={connect}
+      <button onClick={connectWalletConnect}
         className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-[13px] font-semibold
           bg-[rgba(255,200,80,0.1)] border border-[rgba(255,200,80,0.25)] text-[#ffd060]
           hover:bg-[rgba(255,200,80,0.18)] transition-colors">
@@ -34,7 +34,7 @@ export default function WalletButton() {
   }
 
   return (
-    <button onClick={connect} disabled={isConnecting} className="btn-primary text-[13px] py-2 px-4">
+    <button onClick={connectWalletConnect} disabled={isConnecting} className="btn-primary text-[13px] py-2 px-4">
       {isConnecting
         ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Connecting...</>
         : <><Wallet className="w-3.5 h-3.5" />Connect Wallet</>

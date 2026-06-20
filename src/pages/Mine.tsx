@@ -1,20 +1,38 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Wallet, Zap, Clock, Key, PlusCircle, ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Wallet, Zap, Key, PlusCircle, ExternalLink, RefreshCw, Lock, Gift, Pickaxe } from 'lucide-react'
 import { useWalletContext } from '../context/WalletContext'
-import { useUserMiningStats, useCurrentRank, useRealTimeKNTC, useMiningCountdown } from '../hooks/useMining'
+import {
+  useUserMiningStats, useCurrentRank, useRealTimeKNTC,
+  useMiningCountdown, useMiningEvents, useProtocolStats,
+} from '../hooks/useMining'
 import AdModal from '../components/AdModal'
 import MiningResult from '../components/MiningResult'
+import EventRow from '../components/EventRow'
+import EmptyState from '../components/EmptyState'
 import {
   publicClient, MINING_ADDRESS, KINETIC_MINING_ABI,
   RANK_COLOR, RANK_NAME,
-  formatDuration,
+  formatDuration, formatKNTC, formatPoints, formatAddress,
+  maculatusTestnet,
 } from '../lib/chain'
 
 type Phase = 'idle' | 'ad' | 'mining' | 'result'
 
+// ── Session ring constants ────────────────────────────────────────────────────
+const RING_SIZE   = 220
+const RING_STROKE = 10
+const RING_R      = (RING_SIZE - RING_STROKE) / 2
+const RING_CIRC   = 2 * Math.PI * RING_R
+const SESSION_MAX = 24 * 3600
+
 export default function Mine() {
-  const { address, writeContract, connectMetaMask, connectWalletConnect, generateWallet, importWallet, isConnecting } = useWalletContext()
+  const {
+    address, writeContract,
+    connectMetaMask, connectWalletConnect,
+    generateWallet, importWallet, isConnecting,
+  } = useWalletContext()
   const queryClient = useQueryClient()
 
   const [phase,       setPhase]       = useState<Phase>('idle')
@@ -25,25 +43,33 @@ export default function Mine() {
   const [importing,   setImporting]   = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
 
-  const { data: stats, isLoading } = useUserMiningStats(address as `0x${string}` | undefined)
-  const { data: rankData }         = useCurrentRank()
+  const { data: stats,    isLoading } = useUserMiningStats(address as `0x${string}` | undefined)
+  const { data: events,   isLoading: eLoading, refetch } = useMiningEvents(address as `0x${string}` | undefined)
+  const { data: protocol }            = useProtocolStats()
+  const { data: rankData }            = useCurrentRank()
 
   const canMine      = stats?.canMine         ?? true
   const cooldownSecs = Number(stats?.cooldown        ?? 0n)
   const lastMineAt   = Number(stats?.lastMineAt      ?? 0n)
   const sessionLeft  = Number(stats?.sessionTimeLeft ?? 0n)
   const cycleCount   = Number(stats?.cycleCount      ?? 0n)
-  const rank         = rankData?.rank         ?? 1
+  const pendingClaim = stats?.pendingClaim   ?? 0n
+  const estimatedKNTC= stats?.estimatedKNTC  ?? 0n
+  const tgeActive    = stats?.tgeActive      ?? false
+  const rank         = rankData?.rank        ?? 1
   const rankPct      = rankData?.quotaFillPct ?? 0
 
   const isSessionActive = lastMineAt > 0 && !canMine
   const liveKNTC = useRealTimeKNTC(lastMineAt, isSessionActive)
 
+  const { remaining: sessionRemain } = useMiningCountdown(sessionLeft)
   const { remaining: cooldownRemain } = useMiningCountdown(cooldownSecs)
-  const { remaining: sessionRemain  } = useMiningCountdown(sessionLeft)
-
-  const d  = formatDuration(cooldownRemain)
   const ds = formatDuration(sessionRemain)
+  const dc = formatDuration(cooldownRemain)
+
+  // Ring progress: fraction of session remaining (1 = full, 0 = done)
+  const sessionProgress  = sessionRemain > 0 ? sessionRemain / SESSION_MAX : 0
+  const ringOffset       = RING_CIRC * (1 - Math.min(sessionProgress, 1))
 
   async function handleAdComplete() {
     setPhase('mining')
@@ -77,18 +103,17 @@ export default function Mine() {
     } finally { setImporting(false) }
   }
 
+  // ── Not connected ─────────────────────────────────────────────────────────
   if (!address) {
     return (
       <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12 animate-fade-in">
         <div className="w-full max-w-[360px] flex flex-col items-center gap-7">
 
-          {/* Glow icon */}
           <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
             style={{ background: 'linear-gradient(135deg,#5ac8f0,#A8E6FF)', boxShadow: '0 0 60px rgba(168,230,255,0.28)' }}>
             <Zap className="w-9 h-9 text-[#001020]" />
           </div>
 
-          {/* Heading */}
           <div className="text-center">
             <h1 className="text-3xl font-black text-white mb-2">Start Mining</h1>
             <p className="text-muted text-sm leading-relaxed">
@@ -96,7 +121,6 @@ export default function Mine() {
             </p>
           </div>
 
-          {/* Feature list — inline, not boxed */}
           <ul className="w-full space-y-3">
             {[
               'Watch 15–30s ads to trigger 24h mining sessions',
@@ -110,10 +134,8 @@ export default function Mine() {
             ))}
           </ul>
 
-          {/* Wallet options */}
           {!importMode ? (
             <div className="w-full flex flex-col gap-3">
-              {/* Primary — WalletConnect (QR + 300+ wallets) */}
               <button
                 onClick={connectWalletConnect}
                 disabled={isConnecting}
@@ -122,11 +144,8 @@ export default function Mine() {
                 {isConnecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
 
-              {/* MetaMask extension — only shown if detected */}
               {typeof window !== 'undefined' && (window as any).ethereum && (
-                <button
-                  onClick={connectMetaMask}
-                  disabled={isConnecting}
+                <button onClick={connectMetaMask} disabled={isConnecting}
                   className="btn-secondary w-full justify-center text-sm">
                   <Zap className="w-4 h-4" />
                   MetaMask Extension
@@ -142,13 +161,11 @@ export default function Mine() {
               <div className="flex gap-2 w-full">
                 <button onClick={generateWallet}
                   className="btn-secondary flex-1 justify-center text-sm">
-                  <PlusCircle className="w-4 h-4" />
-                  Generate
+                  <PlusCircle className="w-4 h-4" /> Generate
                 </button>
                 <button onClick={() => setImportMode(true)}
                   className="btn-ghost flex-1 justify-center text-sm border border-[rgba(168,230,255,0.1)]">
-                  <Key className="w-4 h-4" />
-                  Import Key
+                  <Key className="w-4 h-4" /> Import Key
                 </button>
               </div>
 
@@ -158,8 +175,7 @@ export default function Mine() {
             </div>
           ) : (
             <div className="w-full flex flex-col gap-3">
-              <button
-                onClick={() => { setImportMode(false); setImportError(null) }}
+              <button onClick={() => { setImportMode(false); setImportError(null) }}
                 className="btn-ghost self-start text-sm">
                 Back
               </button>
@@ -173,9 +189,7 @@ export default function Mine() {
                 style={{ fontFamily: 'JetBrains Mono, monospace' }}
               />
               {importError && <p className="text-xs text-[#ff9090]">{importError}</p>}
-              <button
-                onClick={handleImport}
-                disabled={importing || !pkInput.trim()}
+              <button onClick={handleImport} disabled={importing || !pkInput.trim()}
                 className="btn-primary w-full justify-center">
                 {importing ? 'Importing...' : 'Import Wallet'}
               </button>
@@ -189,15 +203,16 @@ export default function Mine() {
     )
   }
 
+  // ── Connected ─────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-xl mx-auto px-4 py-8 flex flex-col gap-5 animate-fade-in">
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-5 animate-fade-in">
 
       {phase === 'ad' && <AdModal onComplete={handleAdComplete} />}
 
       {/* Pre-TGE notice */}
-      <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-xs"
-        style={{ background: 'rgba(168,230,255,0.04)', border: '1px solid rgba(168,230,255,0.1)' }}>
-        <div className="w-1.5 h-1.5 rounded-full bg-[#A8E6FF] mt-0.5 shrink-0" />
+      <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs"
+        style={{ background: 'rgba(168,230,255,0.04)', border: '1px solid rgba(168,230,255,0.08)' }}>
+        <div className="w-1.5 h-1.5 rounded-full bg-[#A8E6FF] shrink-0" />
         <span style={{ color: '#4a6a7a' }}>
           <span className="text-[#A8E6FF] font-bold">Pre-TGE — </span>
           Mining earns KNTC at a fixed rate. Real KNTC claimable after TGE.
@@ -221,99 +236,137 @@ export default function Mine() {
         <span className="text-subtle text-[10px]">Global quota · Halving auto-applied</span>
       </div>
 
-      {/* Result or mining UI */}
-      {phase === 'result' && txHash ? (
-        <MiningResult
-          txHash={txHash}
-          onReset={() => { setTxHash(null); setPhase('idle') }}
-        />
-      ) : (
-        <>
-          {/* Mine card */}
-          <div className="card overflow-hidden">
-            {/* Status bar */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(168,230,255,0.06)]">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full"
-                  style={{ background: phase === 'mining' ? '#ffd060' : canMine ? '#60ffb0' : '#4a6a7a' }} />
-                <span className="text-sm font-bold" style={{ color: '#b8dcf0' }}>
-                  {isLoading ? 'Loading...' :
-                   phase === 'mining' ? 'Broadcasting...' :
-                   canMine ? 'Ready to Mine' : 'Mining Active'}
+      {/* ── Two-column layout: mining card (left) + info sidebar (right) ── */}
+      <div className="grid lg:grid-cols-3 gap-5">
+
+        {/* Left: main mining panel */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* Mining result */}
+          {phase === 'result' && txHash ? (
+            <MiningResult txHash={txHash} onReset={() => { setTxHash(null); setPhase('idle') }} />
+          ) : (
+            <div className="card overflow-hidden">
+              {/* Status bar */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(168,230,255,0.06)]">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full animate-pulse-glacier"
+                    style={{ background: phase === 'mining' ? '#ffd060' : canMine ? '#60ffb0' : '#A8E6FF' }} />
+                  <span className="text-sm font-bold" style={{ color: '#b8dcf0' }}>
+                    {isLoading    ? 'Loading...' :
+                     phase === 'mining' ? 'Broadcasting...' :
+                     canMine      ? 'Ready to Mine' : 'Session Active'}
+                  </span>
+                </div>
+                <span className="text-xs font-bold px-2 py-1 rounded-lg"
+                  style={{ background: 'rgba(96,255,176,0.08)', border: '1px solid rgba(96,255,176,0.18)', color: '#60ffb0' }}>
+                  0.045 KNTC/h
                 </span>
               </div>
-              <span className="text-xs font-bold px-2 py-1 rounded-lg"
-                style={{ background: 'rgba(96,255,176,0.08)', border: '1px solid rgba(96,255,176,0.2)', color: '#60ffb0' }}>
-                0.045 KNTC/h
-              </span>
-            </div>
 
-            {/* Center */}
-            <div className="flex flex-col items-center justify-center py-10 px-6">
-              {phase === 'mining' ? (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-14 h-14 border-2 border-[#A8E6FF] border-t-transparent rounded-full animate-spin" />
-                  <p className="text-muted text-sm">Signing & broadcasting...</p>
-                </div>
-              ) : canMine ? (
-                <button
-                  onClick={() => { setMineError(null); setPhase('ad') }}
-                  disabled={phase !== 'idle'}
-                  className="w-36 h-36 rounded-full flex flex-col items-center justify-center gap-1 transition-all active:scale-95"
-                  style={{
-                    background:   'linear-gradient(135deg,#5ac8f0,#A8E6FF)',
-                    boxShadow:    '0 0 48px rgba(168,230,255,0.4)',
-                    color:        '#001020',
-                  }}>
-                  <Zap className="w-10 h-10" />
-                  <span className="font-black text-lg tracking-widest">MINE</span>
-                  <span className="text-[9px] opacity-70 text-center leading-tight">Watch ad · 24h session</span>
-                </button>
-              ) : (
-                <div className="flex flex-col items-center gap-2">
-                  <Clock className="w-7 h-7 text-muted" />
-                  <span className="text-muted text-sm">Session ends in</span>
-                  <span className="font-mono text-4xl font-black text-white">
-                    {ds.h}:{ds.m}:{ds.s}
-                  </span>
-                  <span className="text-subtle text-xs">Next mine available after cooldown</span>
-                  <span className="text-subtle text-xs">Cooldown: {d.h}:{d.m}:{d.s}</span>
+              {/* Center */}
+              <div className="flex flex-col items-center justify-center py-10 px-6">
+                {phase === 'mining' ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-14 h-14 border-2 border-[#A8E6FF] border-t-transparent rounded-full animate-spin" />
+                    <p className="text-muted text-sm">Signing & broadcasting...</p>
+                  </div>
+
+                ) : canMine ? (
+                  /* ── MINE button ── */
+                  <button
+                    onClick={() => { setMineError(null); setPhase('ad') }}
+                    disabled={phase !== 'idle'}
+                    className="w-40 h-40 rounded-full flex flex-col items-center justify-center gap-1 transition-all active:scale-95 hover:scale-[1.04]"
+                    style={{
+                      background:   'linear-gradient(135deg,#5ac8f0,#A8E6FF)',
+                      boxShadow:    '0 0 56px rgba(168,230,255,0.45), 0 0 100px rgba(168,230,255,0.15)',
+                      color:        '#001020',
+                    }}>
+                    <Zap className="w-10 h-10" />
+                    <span className="font-black text-xl tracking-widest">MINE</span>
+                    <span className="text-[9px] opacity-60 text-center leading-tight">Watch ad · 24h session</span>
+                  </button>
+
+                ) : (
+                  /* ── Session ring countdown ── */
+                  <div className="flex flex-col items-center gap-5">
+                    <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
+                      {/* SVG ring */}
+                      <svg width={RING_SIZE} height={RING_SIZE} style={{ transform: 'rotate(-90deg)' }}>
+                        {/* Track */}
+                        <circle
+                          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R}
+                          fill="none" stroke="rgba(168,230,255,0.06)" strokeWidth={RING_STROKE}
+                        />
+                        {/* Progress arc */}
+                        <circle
+                          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R}
+                          fill="none"
+                          stroke="url(#ringGrad)"
+                          strokeWidth={RING_STROKE}
+                          strokeLinecap="round"
+                          strokeDasharray={RING_CIRC}
+                          strokeDashoffset={ringOffset}
+                          style={{ transition: 'stroke-dashoffset 1s linear' }}
+                        />
+                        <defs>
+                          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%"   stopColor="#5ac8f0" />
+                            <stop offset="100%" stopColor="#A8E6FF" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+
+                      {/* Orbiting glow dot */}
+                      <div className="absolute inset-0 animate-orbit-slow pointer-events-none">
+                        <div className="absolute top-[5px] left-1/2 -translate-x-1/2 w-3 h-3 rounded-full"
+                          style={{ background: '#A8E6FF', boxShadow: '0 0 12px rgba(168,230,255,0.9), 0 0 24px rgba(168,230,255,0.4)' }} />
+                      </div>
+
+                      {/* Center content */}
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-[10px] font-semibold tracking-[2px] text-muted uppercase">Next mine in</span>
+                        <span className="font-mono text-4xl font-black text-white leading-none tabular-nums">
+                          {ds.h}:{ds.m}:{ds.s}
+                        </span>
+                        <div className="mt-2 px-3 py-1 rounded-full"
+                          style={{ background: 'rgba(96,255,176,0.1)', border: '1px solid rgba(96,255,176,0.2)' }}>
+                          <span className="font-mono text-sm font-bold" style={{ color: '#60ffb0' }}>
+                            {liveKNTC} KNTC
+                          </span>
+                        </div>
+                        <span className="text-subtle text-[10px]">accumulated</span>
+                      </div>
+                    </div>
+
+                    {/* Cooldown note */}
+                    {cooldownRemain > 0 && (
+                      <div className="flex items-center gap-2 text-xs text-muted">
+                        <div className="w-1 h-1 rounded-full bg-[rgba(168,230,255,0.3)]" />
+                        Cooldown: <span className="font-mono text-[#A8E6FF]">{dc.h}:{dc.m}:{dc.s}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Error */}
+              {mineError && (
+                <div className="mx-4 mb-4 px-3 py-2 rounded-xl text-xs text-[#ff9090] flex items-center gap-2"
+                  style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)' }}>
+                  <span>!</span> {mineError}
                 </div>
               )}
             </div>
-
-            {mineError && (
-              <div className="mx-4 mb-4 px-3 py-2 rounded-xl text-xs text-[#ff9090] flex items-center gap-2"
-                style={{ background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.2)' }}>
-                <span className="shrink-0">!</span>
-                {mineError}
-              </div>
-            )}
-          </div>
-
-          {/* Live KNTC counter */}
-          {isSessionActive && (
-            <div className="flex flex-col items-center gap-1 py-5 px-4 rounded-2xl"
-              style={{ background: 'rgba(96,255,176,0.04)', border: '1px solid rgba(96,255,176,0.15)' }}>
-              <span className="text-[9px] font-bold tracking-[2px] text-muted uppercase">Live Mining Counter</span>
-              <span className="font-mono text-4xl font-black" style={{ color: '#60ffb0' }}>
-                {liveKNTC}
-              </span>
-              <span className="text-muted text-xs">KNTC accumulated this session</span>
-              <div className="flex items-center gap-4 mt-2 text-xs text-muted">
-                <span>Rate: <span className="text-[#60ffb0]">0.045 KNTC/h</span></span>
-                <span className="opacity-20">|</span>
-                <span>Session: <span className="text-[#A8E6FF]">{ds.h}:{ds.m}:{ds.s}</span></span>
-              </div>
-            </div>
           )}
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Cycles',    value: cycleCount.toString(),  color: '#A8E6FF' },
-              { label: 'KNTC/h',   value: '0.045',                color: '#60ffb0' },
-              { label: 'Per Day',   value: '1.08',                 color: '#ffd060' },
+              { label: 'Cycles',  value: cycleCount.toString(), color: '#A8E6FF' },
+              { label: 'KNTC/h',  value: '0.045',               color: '#60ffb0' },
+              { label: 'Per Day', value: '1.08',                 color: '#ffd060' },
             ].map(({ label, value, color }) => (
               <div key={label} className="card p-4 flex flex-col items-center gap-1">
                 <span className="font-black text-xl" style={{ color }}>{value}</span>
@@ -322,16 +375,119 @@ export default function Mine() {
             ))}
           </div>
 
+          {/* TGE / pending credits banner */}
+          <div className="card p-4 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              {tgeActive
+                ? <Gift className="w-5 h-5 text-[#60ffb0] shrink-0 mt-0.5" />
+                : <Lock className="w-5 h-5 text-[#A8E6FF] shrink-0 mt-0.5" />}
+              <div>
+                <div className="text-white font-semibold text-sm">
+                  {tgeActive ? 'TGE Active — Claim your KNTC!' : 'Pre-TGE: Credits locked until launch'}
+                </div>
+                <div className="text-muted text-xs mt-0.5">
+                  {tgeActive
+                    ? `${formatPoints(pendingClaim)} pts ≈ ${formatKNTC(estimatedKNTC)} KNTC ready.`
+                    : `${formatPoints(pendingClaim)} pts accumulated · Est. ${formatKNTC(estimatedKNTC)} KNTC at TGE.`}
+                </div>
+              </div>
+            </div>
+            {tgeActive && (
+              <button className="btn-primary text-sm py-2 px-4 whitespace-nowrap shrink-0">
+                <Gift className="w-3.5 h-3.5" /> Claim
+              </button>
+            )}
+          </div>
+
+          {/* Mining history */}
+          <div className="card-glow overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[rgba(168,230,255,0.06)]">
+              <h2 className="font-bold text-white text-sm">My Mining History</h2>
+              <div className="flex items-center gap-2">
+                <button onClick={() => refetch()} className="p-1.5 rounded-lg text-muted hover:text-[#A8E6FF] transition-colors">
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+                <Link to="/activity" className="btn-ghost text-xs py-1.5">All Activity</Link>
+              </div>
+            </div>
+            {eLoading ? (
+              <div className="p-5 space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => <div key={i} className="shimmer h-14 rounded-xl" />)}
+              </div>
+            ) : !events?.length ? (
+              <EmptyState icon={Pickaxe} title="No sessions yet"
+                description="Your on-chain mining history will appear here." />
+            ) : (
+              <div className="divide-y divide-[rgba(168,230,255,0.05)]">
+                {events.slice(0, 8).map(e => (
+                  <EventRow key={e.txHash} user={e.user} timestamp={e.timestamp}
+                    ratePerHour={e.ratePerHour} tier={e.tier} txHash={e.txHash}
+                    blockNumber={e.blockNumber} highlight />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right sidebar */}
+        <div className="space-y-4">
+
+          {/* Wallet info */}
+          <div className="card p-5 space-y-3">
+            <h3 className="font-semibold text-white text-sm">Wallet</h3>
+            <a href={`${maculatusTestnet.blockExplorers.default.url}/address/${address}`}
+              target="_blank" rel="noopener noreferrer"
+              className="address-pill flex items-center gap-1.5 hover:border-[rgba(168,230,255,0.3)] transition-colors w-full justify-between">
+              <span className="font-mono text-xs">{formatAddress(address)}</span>
+              <ExternalLink className="w-3 h-3 shrink-0" />
+            </a>
+          </div>
+
+          {/* Network info */}
+          <div className="card p-5 space-y-3">
+            <h3 className="font-semibold text-white text-sm">Network</h3>
+            {[
+              { l: 'Network',    v: 'Maculatus Testnet' },
+              { l: 'Chain ID',   v: '10778'             },
+              { l: 'Session',    v: '24 hours'          },
+              { l: 'Rate',       v: '0.045 KNTC/h'      },
+              { l: 'Conversion', v: '1,250 pts = 1 KNTC'},
+              { l: 'TGE',        v: tgeActive ? 'Active' : 'Pre-Launch' },
+            ].map(({ l, v }) => (
+              <div key={l} className="flex justify-between gap-2">
+                <span className="text-muted text-xs">{l}</span>
+                <span className="text-white text-xs font-medium font-mono text-right truncate max-w-[130px]">{v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Protocol */}
+          {protocol && (
+            <div className="card p-5 space-y-3">
+              <h3 className="font-semibold text-white text-sm">Protocol</h3>
+              {[
+                { l: 'Total Cycles',   v: protocol.totalCycles.toString(),                  c: '#A8E6FF' },
+                { l: 'Unique Miners',  v: protocol.uniqueMiners.toString(),                 c: '#A8E6FF' },
+                { l: 'Points Minted',  v: `${formatPoints(protocol.totalPointsMinted)} pts`, c: '#60ffb0' },
+                { l: 'Claimed',        v: `${formatKNTC(protocol.totalTokensClaimed)} KNTC`, c: '#c090ff' },
+              ].map(({ l, v, c }) => (
+                <div key={l} className="flex justify-between gap-2">
+                  <span className="text-muted text-xs">{l}</span>
+                  <span className="font-mono text-xs font-bold truncate" style={{ color: c }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Contract link */}
-          <a
-            href={`https://maculatus-scan.x1eco.com/address/${MINING_ADDRESS}`}
+          <a href={`https://maculatus-scan.x1eco.com/address/${MINING_ADDRESS}`}
             target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 text-subtle text-xs hover:text-[#A8E6FF] transition-colors">
+            className="flex items-center justify-center gap-1.5 text-subtle text-xs hover:text-[#A8E6FF] transition-colors py-2">
             <ExternalLink className="w-3 h-3" />
             View contract on explorer
           </a>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   )
 }

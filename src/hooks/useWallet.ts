@@ -1,13 +1,13 @@
 import { useWalletContext } from '../context/WalletContext'
 
 export function useWallet() {
-  const { address, isConnecting, isOnCorrectChain, error, connectMetaMask, disconnect } = useWalletContext()
+  const ctx = useWalletContext()
   return {
-    address,
-    isConnecting,
-    isOnCorrectChain,
-    error,
-    connect: connectMetaMask,
-    disconnect,
+    address:          ctx.address,
+    isConnecting:     ctx.isConnecting,
+    isOnCorrectChain: ctx.isOnCorrectChain,
+    error:            ctx.error,
+    connect:          ctx.connectWalletConnect,
+    disconnect:       ctx.disconnect,
   }
 }

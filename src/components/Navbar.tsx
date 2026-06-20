@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { BarChart3, Activity, Home, Menu, X, Zap, Pickaxe, User } from 'lucide-react'
+import { Activity, Home, Menu, X, Zap, Pickaxe, User } from 'lucide-react'
 import NetworkBadge from './NetworkBadge'
 import WalletButton from './WalletButton'
 import { useWalletContext } from '../context/WalletContext'
@@ -8,10 +8,9 @@ import { formatAddress } from '../lib/chain'
 import clsx from 'clsx'
 
 const baseLinks = [
-  { to: '/',          label: 'Home',      icon: Home      },
-  { to: '/mine',      label: 'Mine',      icon: Pickaxe   },
-  { to: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-  { to: '/activity',  label: 'Activity',  icon: Activity  },
+  { to: '/',         label: 'Home',     icon: Home     },
+  { to: '/mine',     label: 'Mine',     icon: Pickaxe  },
+  { to: '/activity', label: 'Activity', icon: Activity },
 ]
 
 export default function Navbar() {
