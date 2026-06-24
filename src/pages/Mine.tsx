@@ -264,79 +264,108 @@ export default function Mine() {
                 </span>
               </div>
 
-              {/* Center */}
-              <div className="flex flex-col items-center justify-center py-10 px-6">
+              {/* Center — Orb */}
+              <div className="flex flex-col items-center gap-6 py-8 px-6">
+
                 {phase === 'mining' ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-14 h-14 border-2 border-[#A8E6FF] border-t-transparent rounded-full animate-spin" />
-                    <p className="text-muted text-sm">Signing & broadcasting...</p>
+                  /* ── Broadcasting spinner ── */
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative flex items-center justify-center" style={{ width: 240, height: 240 }}>
+                      <div className="absolute inset-0 rounded-full animate-pulse"
+                        style={{ background: 'radial-gradient(circle at 40% 35%, rgba(90,200,240,0.35) 0%, rgba(168,230,255,0.12) 55%, transparent 75%)', filter: 'blur(18px)' }} />
+                      <div className="relative z-10 flex flex-col items-center gap-3">
+                        <div className="w-10 h-10 border-2 border-[#A8E6FF] border-t-transparent rounded-full animate-spin" />
+                        <p className="text-[#A8E6FF] text-sm font-semibold">Signing & broadcasting...</p>
+                      </div>
+                    </div>
                   </div>
 
                 ) : canMine ? (
-                  /* ── MINE button ── */
+                  /* ── INACTIVE: glowing orb — tap to mine ── */
                   <button
                     onClick={() => { setMineError(null); setPhase('ad') }}
                     disabled={phase !== 'idle'}
-                    className="w-40 h-40 rounded-full flex flex-col items-center justify-center gap-1 transition-all active:scale-95 hover:scale-[1.04]"
-                    style={{
-                      background:   'linear-gradient(135deg,#5ac8f0,#A8E6FF)',
-                      boxShadow:    '0 0 56px rgba(168,230,255,0.45), 0 0 100px rgba(168,230,255,0.15)',
-                      color:        '#001020',
-                    }}>
-                    <Zap className="w-10 h-10" />
-                    <span className="font-black text-xl tracking-widest">MINE</span>
-                    <span className="text-[9px] opacity-60 text-center leading-tight">Watch ad · 24h session</span>
+                    className="relative flex items-center justify-center transition-transform active:scale-95 hover:scale-[1.03] focus:outline-none"
+                    style={{ width: 264, height: 264 }}>
+
+                    {/* Outer ambient glow layers */}
+                    <div className="absolute inset-0 rounded-full"
+                      style={{ background: 'radial-gradient(circle at 38% 32%, rgba(90,200,240,0.22) 0%, rgba(168,230,255,0.08) 60%, transparent 80%)', filter: 'blur(28px)', transform: 'scale(1.15)' }} />
+                    <div className="absolute inset-0 rounded-full animate-pulse"
+                      style={{ background: 'radial-gradient(circle at 60% 65%, rgba(168,230,255,0.12) 0%, transparent 65%)', filter: 'blur(20px)', animationDuration: '3s' }} />
+
+                    {/* Main orb body */}
+                    <div className="absolute inset-4 rounded-full"
+                      style={{
+                        background: 'radial-gradient(circle at 38% 32%, #7ad8f8 0%, #4ab8e8 25%, #1a6890 60%, #0a2840 100%)',
+                        boxShadow: '0 0 60px rgba(90,200,240,0.5), 0 0 120px rgba(168,230,255,0.2), inset 0 8px 32px rgba(255,255,255,0.12), inset 0 -8px 24px rgba(0,16,32,0.6)',
+                      }} />
+
+                    {/* Specular highlight */}
+                    <div className="absolute rounded-full pointer-events-none"
+                      style={{ top: '18%', left: '26%', width: '38%', height: '22%', background: 'radial-gradient(ellipse, rgba(255,255,255,0.28) 0%, transparent 100%)', filter: 'blur(4px)' }} />
+
+                    {/* Center label */}
+                    <div className="relative z-10 flex flex-col items-center gap-1.5 select-none">
+                      <Zap className="w-8 h-8" style={{ color: '#001020', filter: 'drop-shadow(0 0 6px rgba(168,230,255,0.6))' }} />
+                      <span className="font-black text-2xl tracking-widest" style={{ color: '#001020', textShadow: '0 1px 4px rgba(168,230,255,0.5)' }}>MINE</span>
+                      <span className="text-[10px] font-semibold opacity-60" style={{ color: '#001020' }}>Watch ad · 24h session</span>
+                    </div>
                   </button>
 
                 ) : (
-                  /* ── Session ring countdown ── */
+                  /* ── ACTIVE: animated orb with countdown ── */
                   <div className="flex flex-col items-center gap-5">
-                    <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
-                      {/* SVG ring */}
-                      <svg width={RING_SIZE} height={RING_SIZE} style={{ transform: 'rotate(-90deg)' }}>
-                        {/* Track */}
+                    <div className="relative flex items-center justify-center" style={{ width: 264, height: 264 }}>
+
+                      {/* Pulsing outer glow */}
+                      <div className="absolute inset-0 rounded-full animate-pulse"
+                        style={{ background: 'radial-gradient(circle at 38% 32%, rgba(90,200,240,0.28) 0%, rgba(168,230,255,0.10) 58%, transparent 78%)', filter: 'blur(28px)', transform: 'scale(1.18)', animationDuration: '2.5s' }} />
+                      <div className="absolute inset-0 rounded-full animate-pulse"
+                        style={{ background: 'radial-gradient(circle at 62% 68%, rgba(96,255,176,0.12) 0%, transparent 60%)', filter: 'blur(20px)', animationDuration: '3.8s' }} />
+
+                      {/* Main orb body */}
+                      <div className="absolute inset-4 rounded-full"
+                        style={{
+                          background: 'radial-gradient(circle at 38% 32%, #7ad8f8 0%, #4ab8e8 25%, #1a6890 60%, #0a2840 100%)',
+                          boxShadow: '0 0 60px rgba(90,200,240,0.55), 0 0 120px rgba(168,230,255,0.22), inset 0 8px 32px rgba(255,255,255,0.12), inset 0 -8px 24px rgba(0,16,32,0.6)',
+                        }} />
+
+                      {/* Specular highlight */}
+                      <div className="absolute rounded-full pointer-events-none"
+                        style={{ top: '18%', left: '26%', width: '38%', height: '22%', background: 'radial-gradient(ellipse, rgba(255,255,255,0.26) 0%, transparent 100%)', filter: 'blur(4px)' }} />
+
+                      {/* SVG ring overlay */}
+                      <svg className="absolute inset-0" width={264} height={264} style={{ transform: 'rotate(-90deg)' }}>
+                        <circle cx={132} cy={132} r={124} fill="none" stroke="rgba(168,230,255,0.08)" strokeWidth={6} />
                         <circle
-                          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R}
-                          fill="none" stroke="rgba(168,230,255,0.06)" strokeWidth={RING_STROKE}
-                        />
-                        {/* Progress arc */}
-                        <circle
-                          cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R}
-                          fill="none"
-                          stroke="url(#ringGrad)"
-                          strokeWidth={RING_STROKE}
+                          cx={132} cy={132} r={124}
+                          fill="none" stroke="url(#orbRingGrad)" strokeWidth={6}
                           strokeLinecap="round"
-                          strokeDasharray={RING_CIRC}
-                          strokeDashoffset={ringOffset}
+                          strokeDasharray={2 * Math.PI * 124}
+                          strokeDashoffset={2 * Math.PI * 124 * (1 - Math.min(sessionProgress, 1))}
                           style={{ transition: 'stroke-dashoffset 1s linear' }}
                         />
                         <defs>
-                          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%"   stopColor="#5ac8f0" />
+                          <linearGradient id="orbRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#5ac8f0" />
                             <stop offset="100%" stopColor="#A8E6FF" />
                           </linearGradient>
                         </defs>
                       </svg>
 
-                      {/* Orbiting glow dot */}
-                      <div className="absolute inset-0 animate-orbit-slow pointer-events-none">
-                        <div className="absolute top-[5px] left-1/2 -translate-x-1/2 w-3 h-3 rounded-full"
-                          style={{ background: '#A8E6FF', boxShadow: '0 0 12px rgba(168,230,255,0.9), 0 0 24px rgba(168,230,255,0.4)' }} />
-                      </div>
-
-                      {/* Center content */}
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-[10px] font-semibold tracking-[2px] text-muted uppercase">Next mine in</span>
-                        <span className="font-mono text-4xl font-black text-white leading-none tabular-nums">
+                      {/* Center countdown */}
+                      <div className="relative z-10 flex flex-col items-center gap-1 select-none">
+                        <span className="text-[9px] font-bold tracking-[2.5px] uppercase" style={{ color: 'rgba(0,16,32,0.7)' }}>Next cycle in</span>
+                        <span className="font-mono font-black tabular-nums leading-none" style={{ fontSize: 36, color: '#001020', textShadow: '0 1px 6px rgba(168,230,255,0.4)' }}>
                           {ds.h}:{ds.m}:{ds.s}
                         </span>
-                        <div className="mt-2 px-3 py-1 rounded-full"
-                          style={{ background: 'rgba(96,255,176,0.1)', border: '1px solid rgba(96,255,176,0.2)' }}>
-                          <span className="font-mono text-sm font-bold" style={{ color: '#60ffb0' }}>
-                            {liveKNTC} KNTC
+                        <div className="mt-1 px-3 py-0.5 rounded-full"
+                          style={{ background: 'rgba(0,10,20,0.35)', border: '1px solid rgba(168,230,255,0.25)' }}>
+                          <span className="font-mono text-xs font-bold" style={{ color: '#001020' }}>
+                            Mining active
                           </span>
                         </div>
-                        <span className="text-subtle text-[10px]">accumulated</span>
                       </div>
                     </div>
 
@@ -349,6 +378,46 @@ export default function Mine() {
                     )}
                   </div>
                 )}
+
+                {/* ── Tokens earned panel (always visible when connected) ── */}
+                {!canMine || liveKNTC !== '0.000000' ? (
+                  <div className="w-full rounded-2xl px-5 py-4 flex flex-col items-center gap-1"
+                    style={{ background: 'rgba(168,230,255,0.04)', border: '1px solid rgba(168,230,255,0.10)' }}>
+                    <span className="text-xs font-medium" style={{ color: '#4a6a7a' }}>You have earned</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono font-black tabular-nums" style={{ fontSize: 32, color: '#A8E6FF', textShadow: '0 0 20px rgba(168,230,255,0.4)' }}>
+                        {liveKNTC}
+                      </span>
+                      <span className="font-bold text-lg" style={{ color: '#A8E6FF' }}>KNTC</span>
+                    </div>
+                    <span className="text-[10px]" style={{ color: '#4a6a7a' }}>this session · accumulating live</span>
+                  </div>
+                ) : null}
+
+                {/* ── Info cards row ── */}
+                <div className="w-full grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl px-4 py-3 flex flex-col gap-1"
+                    style={{ background: 'rgba(168,230,255,0.04)', border: '1px solid rgba(168,230,255,0.08)' }}>
+                    <span className="text-[10px] font-medium" style={{ color: '#4a6a7a' }}>Mining time left</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="#A8E6FF" strokeWidth={2}>
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      <span className="font-mono font-bold text-sm tabular-nums" style={{ color: '#A8E6FF' }}>
+                        {canMine ? '--:--:--' : `${ds.h}:${ds.m}:${ds.s}`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl px-4 py-3 flex flex-col gap-1"
+                    style={{ background: 'rgba(168,230,255,0.04)', border: '1px solid rgba(168,230,255,0.08)' }}>
+                    <span className="text-[10px] font-medium" style={{ color: '#4a6a7a' }}>Mining rate</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Zap className="w-3.5 h-3.5 shrink-0" style={{ color: '#60ffb0' }} />
+                      <span className="font-mono font-bold text-sm" style={{ color: '#60ffb0' }}>0.045 / h</span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
               {/* Error */}
