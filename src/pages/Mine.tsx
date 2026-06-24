@@ -405,13 +405,47 @@ export default function Mine() {
                         {/* Coin edge thickness */}
                         <div className="absolute pointer-events-none" style={{ bottom:-6, left:'8%', width:'84%', height:10, borderRadius:'0 0 50% 50%', background:'linear-gradient(#0a3860, #041828)', filter:'blur(1px)' }} />
 
-                        <span className="text-[9px] font-bold tracking-[2px] uppercase mb-0.5" style={{ color:'rgba(0,16,32,0.65)' }}>Next cycle in</span>
-                        <span className="font-mono font-black tabular-nums leading-none" style={{ fontSize:34, color:'#001020', textShadow:'0 1px 8px rgba(168,230,255,0.35)', letterSpacing:2 }}>
+                        {/* Cycle progress arc — synced with countdown */}
+                        {(() => {
+                          const pct   = Math.min(100, Math.max(0, Math.round((1 - sessionProgress) * 100)))
+                          const R     = 34
+                          const CIRC  = 2 * Math.PI * R
+                          const filled = CIRC * (pct / 100)
+                          return (
+                            <div className="relative flex items-center justify-center mb-1" style={{ width:80, height:80 }}>
+                              <svg width={80} height={80} style={{ position:'absolute', top:0, left:0, transform:'rotate(-90deg)' }}>
+                                {/* Track */}
+                                <circle cx={40} cy={40} r={R} fill="none" stroke="rgba(0,16,32,0.4)" strokeWidth={6} />
+                                {/* Filled arc */}
+                                <circle cx={40} cy={40} r={R} fill="none"
+                                  stroke="url(#cycleGrad)" strokeWidth={6}
+                                  strokeLinecap="round"
+                                  strokeDasharray={`${filled} ${CIRC}`}
+                                  style={{ transition:'stroke-dasharray 1s linear', filter:'drop-shadow(0 0 4px rgba(168,230,255,0.6))' }} />
+                                <defs>
+                                  <linearGradient id="cycleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor="#A8E6FF" />
+                                    <stop offset="100%" stopColor="#60ffb0" />
+                                  </linearGradient>
+                                </defs>
+                              </svg>
+                              {/* Percentage text */}
+                              <div className="relative z-10 flex flex-col items-center leading-none">
+                                <span className="font-black tabular-nums" style={{ fontSize:18, color:'#001020', textShadow:'0 0 6px rgba(168,230,255,0.5)' }}>{pct}%</span>
+                              </div>
+                            </div>
+                          )
+                        })()}
+
+                        {/* Countdown — synced with arc above */}
+                        <span className="text-[8px] font-bold tracking-[2px] uppercase" style={{ color:'rgba(0,16,32,0.55)' }}>Next cycle in</span>
+                        <span className="font-mono font-black tabular-nums leading-none mt-0.5" style={{ fontSize:26, color:'#001020', textShadow:'0 1px 6px rgba(168,230,255,0.35)', letterSpacing:1 }}>
                           {ds.h}:{ds.m}:{ds.s}
                         </span>
-                        <div className="flex items-center gap-1 mt-2 px-3 py-0.5 rounded-full" style={{ background:'rgba(0,10,20,0.35)', border:'1px solid rgba(168,230,255,0.22)' }}>
+
+                        <div className="flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full" style={{ background:'rgba(0,10,20,0.35)', border:'1px solid rgba(168,230,255,0.22)' }}>
                           <div className="w-1.5 h-1.5 rounded-full animate-pulse-glacier" style={{ background:'#60ffb0' }} />
-                          <span className="font-mono text-[10px] font-bold" style={{ color:'#001020' }}>Mining active</span>
+                          <span className="font-mono text-[9px] font-bold" style={{ color:'#001020' }}>Mining active</span>
                         </div>
                       </div>
                     </div>
