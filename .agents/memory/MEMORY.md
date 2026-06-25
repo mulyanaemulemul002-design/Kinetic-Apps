@@ -1,0 +1,1 @@
+- [KineticMining v2 contract design](kinetic-mining-v2.md) — new contract: 1 session = 1 KNTC, 10B supply, TGE-gated claim; all ABI/hooks updated to match.

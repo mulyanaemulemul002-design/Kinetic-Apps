@@ -1,13 +1,15 @@
 /**
- * KineticDAO — Full Deployment Script
- * Deploys KineticToken first, then KineticMining with the token address,
- * then transfers the 700M mining pool to KineticMining.
+ * KineticDAO v2 — Full Deployment Script
+ *
+ * Deploys KineticToken (10B supply), then KineticMining with the token address,
+ * then transfers the full 10B mining pool to KineticMining.
+ * 1 session = 1 KNTC · Sessions locked until TGE · No claiming before launch.
  *
  * Usage:  node scripts/deploy-all.mjs
- * Env:    DEPLOYER_PRIVATE_KEY must be set
+ * Env:    DEPLOYER_PRIVATE_KEY  — hex private key of the deployer wallet
  */
 
-import { createWalletClient, createPublicClient, http, defineChain, parseEther } from 'viem'
+import { createWalletClient, createPublicClient, http, defineChain } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
@@ -21,7 +23,7 @@ const maculatusTestnet = defineChain({
   name: 'Maculatus Testnet',
   nativeCurrency: { decimals: 18, name: 'KNTC', symbol: 'KNTC' },
   rpcUrls: { default: { http: ['https://maculatus-rpc.x1eco.com'] } },
-  blockExplorers: { default: { name: 'KNTC Explorer', url: 'https://explorer.x1eco.com' } },
+  blockExplorers: { default: { name: 'Maculatus Scan', url: 'https://maculatus-scan.x1eco.com' } },
   testnet: true,
 })
 
@@ -32,15 +34,13 @@ function loadArtifact(name) {
   return { bytecode, abi }
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
-
 // ─── Setup ────────────────────────────────────────────────────────────────────
 const pk = process.env.DEPLOYER_PRIVATE_KEY
 if (!pk) { console.error('ERROR: DEPLOYER_PRIVATE_KEY not set'); process.exit(1) }
 
-const account       = privateKeyToAccount(pk.startsWith('0x') ? pk : `0x${pk}`)
-const publicClient  = createPublicClient({ chain: maculatusTestnet, transport: http() })
-const walletClient  = createWalletClient({ chain: maculatusTestnet, transport: http(), account })
+const account      = privateKeyToAccount(pk.startsWith('0x') ? pk : `0x${pk}`)
+const publicClient = createPublicClient({ chain: maculatusTestnet, transport: http() })
+const walletClient = createWalletClient({ chain: maculatusTestnet, transport: http(), account })
 
 // ─── Deploy helper ────────────────────────────────────────────────────────────
 async function deployContract(name, args = []) {
@@ -63,7 +63,7 @@ async function deployContract(name, args = []) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
   console.log('============================================================')
-  console.log('  KineticDAO — Full Deployment')
+  console.log('  KineticDAO v2 — Full Deployment')
   console.log('  Network  : Maculatus Testnet (Chain ID: 10778)')
   console.log(`  Deployer : ${account.address}`)
 
@@ -71,15 +71,15 @@ async function main() {
   console.log(`  Balance  : ${(Number(balance) / 1e18).toFixed(4)} native KNTC (for gas)`)
   console.log('============================================================')
 
-  // ── 1. Deploy KineticToken ─────────────────────────────────────────────────
+  // ── 1. Deploy KineticToken (10 Billion KNTC) ──────────────────────────────
   const token = await deployContract('KineticToken')
 
-  // ── 2. Deploy KineticMining (pass token address) ───────────────────────────
+  // ── 2. Deploy KineticMining (pass token address) ──────────────────────────
   const mining = await deployContract('KineticMining', [token.address])
 
-  // ── 3. Transfer 700M KNTC to KineticMining ────────────────────────────────
-  console.log('\nTransferring 700,000,000 KNTC to KineticMining...')
-  const MINING_POOL = 700_000_000n * 10n ** 18n
+  // ── 3. Transfer entire 10B KNTC pool to KineticMining ────────────────────
+  console.log('\nTransferring 10,000,000,000 KNTC to KineticMining...')
+  const MINING_POOL = 10_000_000_000n * 10n ** 18n
   const transferHash = await walletClient.writeContract({
     address:      token.address,
     abi:          token.abi,
@@ -90,9 +90,9 @@ async function main() {
   })
   console.log(`  tx   : ${transferHash}`)
   await publicClient.waitForTransactionReceipt({ hash: transferHash })
-  console.log(`  700M KNTC transferred to KineticMining`)
+  console.log(`  10,000,000,000 KNTC transferred to KineticMining`)
 
-  // ── 4. Update .env ─────────────────────────────────────────────────────────
+  // ── 4. Update .env ────────────────────────────────────────────────────────
   const envPath = join(__dirname, '../.env')
   let envContent = existsSync(envPath) ? readFileSync(envPath, 'utf8') : ''
 
@@ -111,11 +111,11 @@ async function main() {
   console.log('\n============================================================')
   console.log('  DEPLOYMENT COMPLETE')
   console.log('============================================================')
-  console.log(`  KineticToken   : ${token.address}`)
-  console.log(`    Explorer : https://explorer.x1eco.com/address/${token.address}`)
-  console.log(`  KineticMining  : ${mining.address}`)
-  console.log(`    Explorer : https://explorer.x1eco.com/address/${mining.address}`)
-  console.log('\n  Mining pool funded: 700,000,000 KNTC')
+  console.log(`  KineticToken  : ${token.address}`)
+  console.log(`    Explorer : https://maculatus-scan.x1eco.com/address/${token.address}`)
+  console.log(`  KineticMining : ${mining.address}`)
+  console.log(`    Explorer : https://maculatus-scan.x1eco.com/address/${mining.address}`)
+  console.log('\n  Mining pool funded: 10,000,000,000 KNTC')
   console.log('\n  .env updated:')
   console.log(`    VITE_TOKEN_ADDRESS  = ${token.address}`)
   console.log(`    VITE_MINING_ADDRESS = ${mining.address}`)

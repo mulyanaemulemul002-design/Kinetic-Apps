@@ -1,31 +1,28 @@
 import { ExternalLink } from 'lucide-react'
-import { formatAddress, formatRate, timeAgo, maculatusTestnet, TIER_LABEL, TIER_COLOR, type RewardTier } from '../lib/chain'
+import { formatAddress, formatKNTC, timeAgo, maculatusTestnet } from '../lib/chain'
 
 interface EventRowProps {
   user:        `0x${string}`
   timestamp:   number
-  ratePerHour: bigint
-  tier?:       number
+  ratePerHour: bigint   // kntcEarned in v2 (always 1 KNTC = 1e18)
+  tier?:       number   // unused in v2, kept for API compat
   txHash:      `0x${string}`
   blockNumber: bigint
   highlight?:  boolean
 }
 
-export default function EventRow({ user, timestamp, ratePerHour, tier, txHash, blockNumber, highlight }: EventRowProps) {
+export default function EventRow({ user, timestamp, ratePerHour, txHash, blockNumber, highlight }: EventRowProps) {
   const txUrl   = `${maculatusTestnet.blockExplorers.default.url}/tx/${txHash}`
   const addrUrl = `${maculatusTestnet.blockExplorers.default.url}/address/${user}`
-
-  const safeTier = (typeof tier === 'number' && tier in TIER_LABEL ? tier : 1) as RewardTier
-  const color    = TIER_COLOR[safeTier]
 
   return (
     <div className={`flex items-center gap-3 px-4 py-3 transition-all duration-200 group hover:bg-[rgba(168,230,255,0.03)] ${
       highlight ? 'bg-[rgba(168,230,255,0.04)]' : ''
     }`}>
-      {/* Tier dot */}
+      {/* Session dot */}
       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: `rgba(${hexToRgb(color)},0.1)`, border: `1px solid rgba(${hexToRgb(color)},0.2)` }}>
-        <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+        style={{ background: 'rgba(168,230,255,0.08)', border: '1px solid rgba(168,230,255,0.15)' }}>
+        <div className="w-2 h-2 rounded-full" style={{ background: '#A8E6FF' }} />
       </div>
 
       {/* Address + time */}
@@ -35,20 +32,20 @@ export default function EventRow({ user, timestamp, ratePerHour, tier, txHash, b
             className="font-mono text-sm text-[rgba(168,230,255,0.7)] hover:text-[#A8E6FF] transition-colors">
             {formatAddress(user)}
           </a>
-          <span className="text-subtle text-xs">started mining</span>
+          <span className="text-subtle text-xs">started session</span>
         </div>
         <div className="text-subtle text-xs mt-0.5">
           {timeAgo(timestamp)} · Block #{blockNumber.toString()}
         </div>
       </div>
 
-      {/* Rate */}
+      {/* Earned */}
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="text-right">
-          <div className="text-sm font-bold font-mono" style={{ color }}>
-            {formatRate(ratePerHour)}
+          <div className="text-sm font-bold font-mono" style={{ color: '#60ffb0' }}>
+            +{formatKNTC(ratePerHour)} KNTC
           </div>
-          <div className="text-subtle text-[10px]">mining rate</div>
+          <div className="text-subtle text-[10px]">earned</div>
         </div>
         <a href={txUrl} target="_blank" rel="noopener noreferrer"
           className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted hover:text-[#A8E6FF]
@@ -58,11 +55,4 @@ export default function EventRow({ user, timestamp, ratePerHour, tier, txHash, b
       </div>
     </div>
   )
-}
-
-function hexToRgb(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `${r},${g},${b}`
 }

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Wallet, Zap, Key, PlusCircle, ExternalLink, RefreshCw, Lock, Gift, Pickaxe } from 'lucide-react'
 import { useWalletContext } from '../context/WalletContext'
 import {
-  useUserMiningStats, useCurrentRank, useRealTimeKNTC,
+  useUserMiningStats, useRealTimeKNTC,
   useMiningCountdown, useMiningEvents, useProtocolStats,
 } from '../hooks/useMining'
 import AdModal from '../components/AdModal'
@@ -13,7 +13,6 @@ import EventRow from '../components/EventRow'
 import EmptyState from '../components/EmptyState'
 import {
   publicClient, MINING_ADDRESS, KINETIC_MINING_ABI,
-  RANK_COLOR, RANK_NAME,
   formatDuration, formatKNTC, formatPoints, formatAddress,
   maculatusTestnet,
 } from '../lib/chain'
@@ -41,8 +40,6 @@ export default function Mine() {
   const { data: stats,    isLoading } = useUserMiningStats(address as `0x${string}` | undefined)
   const { data: events,   isLoading: eLoading, refetch } = useMiningEvents(address as `0x${string}` | undefined)
   const { data: protocol }            = useProtocolStats()
-  const { data: rankData }            = useCurrentRank()
-
   const canMine      = stats?.canMine         ?? true
   const cooldownSecs = Number(stats?.cooldown        ?? 0n)
   const lastMineAt   = Number(stats?.lastMineAt      ?? 0n)
@@ -51,9 +48,6 @@ export default function Mine() {
   const pendingClaim = stats?.pendingClaim   ?? 0n
   const estimatedKNTC= stats?.estimatedKNTC  ?? 0n
   const tgeActive    = stats?.tgeActive      ?? false
-  const rank         = rankData?.rank        ?? 1
-  const rankPct      = rankData?.quotaFillPct ?? 0
-
   const isSessionActive = lastMineAt > 0 && !canMine
   const liveKNTC = useRealTimeKNTC(lastMineAt, isSessionActive)
 
@@ -217,22 +211,29 @@ export default function Mine() {
         </span>
       </div>
 
-      {/* Rank bar */}
-      <div className="card p-4 flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full" style={{ background: RANK_COLOR[rank as 1|2|3] }} />
-          <span className="font-bold text-sm" style={{ color: RANK_COLOR[rank as 1|2|3] }}>
-            {RANK_NAME[rank as 1|2|3]}
-          </span>
-          <span className="ml-auto font-mono text-xs font-bold" style={{ color: RANK_COLOR[rank as 1|2|3] }}>
-            {rankPct}%
-          </span>
-        </div>
-        <div className="progress-track">
-          <div className="progress-fill" style={{ width: `${rankPct}%`, background: RANK_COLOR[rank as 1|2|3] }} />
-        </div>
-        <span className="text-subtle text-[10px]">Global quota · Halving auto-applied</span>
-      </div>
+      {/* Mining pool progress */}
+      {(() => {
+        const POOL_TOTAL = 10_000_000_000n * 10n ** 18n
+        const minted     = protocol?.totalPointsMinted ?? 0n
+        const poolPct    = POOL_TOTAL > 0n
+          ? Math.min(100, Number((minted * 10000n) / POOL_TOTAL) / 100)
+          : 0
+        return (
+          <div className="card p-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full animate-pulse-glacier" style={{ background: '#A8E6FF' }} />
+              <span className="font-bold text-sm" style={{ color: '#A8E6FF' }}>Mining Pool</span>
+              <span className="ml-auto font-mono text-xs font-bold text-muted">
+                {formatKNTC(minted)} / 10B KNTC
+              </span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${poolPct}%`, background: 'linear-gradient(90deg,#5ac8f0,#A8E6FF)' }} />
+            </div>
+            <span className="text-subtle text-[10px]">1 session = 1 KNTC · Locked until TGE · {poolPct.toFixed(4)}% distributed</span>
+          </div>
+        )
+      })()}
 
       {/* ── Two-column layout: mining card (left) + info sidebar (right) ── */}
       <div className="grid lg:grid-cols-3 gap-5">

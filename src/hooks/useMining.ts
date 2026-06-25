@@ -17,16 +17,16 @@ export function useProtocolStats() {
         }) as [bigint, bigint, bigint, bigint, bigint, boolean]
 
         return {
-          totalCycles:         result[0],
-          uniqueMiners:        result[1],
-          totalPointsMinted:   result[2],
-          totalTokensClaimed:  result[3],
-          pointsRemaining:     result[4],
-          tgeActive:           result[5],
+          totalCycles:        result[0],   // totalSessions
+          uniqueMiners:       result[1],
+          totalPointsMinted:  result[2],   // KNTC wei credited so far
+          totalTokensClaimed: result[3],   // KNTC wei claimed
+          pointsRemaining:    result[4],   // pool remaining in KNTC wei
+          tgeActive:          result[5],
           // legacy aliases
-          totalVirtualMined:   result[2],
-          totalMined:          result[2],
-          poolRemaining:       result[4],
+          totalVirtualMined:  result[2],
+          totalMined:         result[2],
+          poolRemaining:      result[4],
         }
       } catch {
         return null
@@ -37,44 +37,25 @@ export function useProtocolStats() {
   })
 }
 
-// ─── Rank ─────────────────────────────────────────────────────────────────────
-
-export function useCurrentRank() {
-  return useQuery({
-    queryKey: ['currentRank'],
-    queryFn: async () => {
-      try {
-        const result = await publicClient.readContract({
-          address:      MINING_ADDRESS,
-          abi:          KINETIC_MINING_ABI,
-          functionName: 'getCurrentRank',
-        }) as [number, bigint]
-        return { rank: Number(result[0]) as 1 | 2 | 3, quotaFillPct: Number(result[1]) }
-      } catch {
-        return { rank: 1 as const, quotaFillPct: 0 }
-      }
-    },
-    refetchInterval: 60_000,
-    staleTime:       30_000,
-  })
-}
-
 // ─── User dashboard ───────────────────────────────────────────────────────────
 
 export interface UserDashboard {
-  pendingClaim:    bigint  // integer points pending
-  totalMined:      bigint  // lifetime integer points
-  totalClaimed:    bigint  // KNTC wei claimed
-  cycleCount:      bigint
-  lastMineAt:      bigint
-  cooldown:        bigint
+  // v2 fields
+  pendingKNTC:     bigint   // KNTC wei earned but not yet claimed
+  sessionCount:    bigint   // total sessions this wallet has completed
+  totalClaimed:    bigint   // KNTC wei claimed lifetime
+  lastMineAt:      bigint   // timestamp of last mine()
+  sessionActive:   boolean  // true if 24h window is still running
+  sessionTimeLeft: bigint   // seconds until cooldown expires (= session window)
   canMine:         boolean
   tgeActive:       boolean
-  ratePerHour:     bigint
-  sessionTimeLeft: bigint
-  estimatedKNTC:   bigint
-  // legacy aliases
-  totalEarned:     bigint
+  // legacy aliases (so Mine.tsx/Dashboard.tsx don't need changes)
+  pendingClaim:    bigint   // = pendingKNTC
+  cycleCount:      bigint   // = sessionCount
+  estimatedKNTC:   bigint   // = pendingKNTC (1 session = 1 KNTC exactly)
+  totalEarned:     bigint   // = pendingKNTC + totalClaimed
+  cooldown:        bigint   // = seconds until canMine becomes true
+  ratePerHour:     bigint   // stub — 1 KNTC per session, not per hour
 }
 
 export function useUserMiningStats(address?: `0x${string}`) {
@@ -88,36 +69,50 @@ export function useUserMiningStats(address?: `0x${string}`) {
           abi:          KINETIC_MINING_ABI,
           functionName: 'getUserDashboard',
           args:         [address],
-        }) as [bigint, bigint, bigint, bigint, bigint, bigint, boolean, boolean, bigint, bigint, bigint]
+        }) as [bigint, bigint, bigint, bigint, boolean, bigint, boolean, boolean]
+
+        const pendingKNTC    = result[0]
+        const sessionCount   = result[1]
+        const totalClaimed   = result[2]
+        const lastMineAt     = result[3]
+        const sessionActive  = result[4]
+        const sessionTimeLeft = result[5]
+        const canMine_       = result[6]
+        const tgeActive_     = result[7]
 
         return {
-          pendingClaim:    result[0],
-          totalMined:      result[1],
-          totalClaimed:    result[2],
-          cycleCount:      result[3],
-          lastMineAt:      result[4],
-          cooldown:        result[5],
-          canMine:         result[6],
-          tgeActive:       result[7],
-          ratePerHour:     result[8],
-          sessionTimeLeft: result[9],
-          estimatedKNTC:   result[10],
-          totalEarned:     result[0],
+          pendingKNTC,
+          sessionCount,
+          totalClaimed,
+          lastMineAt,
+          sessionActive,
+          sessionTimeLeft,
+          canMine:       canMine_,
+          tgeActive:     tgeActive_,
+          // legacy aliases
+          pendingClaim:  pendingKNTC,
+          cycleCount:    sessionCount,
+          estimatedKNTC: pendingKNTC,
+          totalEarned:   pendingKNTC + totalClaimed,
+          cooldown:      sessionActive ? sessionTimeLeft : 0n,
+          ratePerHour:   1n,
         }
       } catch {
         return {
-          pendingClaim:    0n,
-          totalMined:      0n,
+          pendingKNTC:     0n,
+          sessionCount:    0n,
           totalClaimed:    0n,
-          cycleCount:      0n,
           lastMineAt:      0n,
-          cooldown:        0n,
+          sessionActive:   false,
+          sessionTimeLeft: 0n,
           canMine:         true,
           tgeActive:       false,
-          ratePerHour:     0n,
-          sessionTimeLeft: 0n,
+          pendingClaim:    0n,
+          cycleCount:      0n,
           estimatedKNTC:   0n,
           totalEarned:     0n,
+          cooldown:        0n,
+          ratePerHour:     0n,
         }
       }
     },
@@ -127,74 +122,29 @@ export function useUserMiningStats(address?: `0x${string}`) {
   })
 }
 
-// ─── Real-time KNTC counter (fixed rate: 0.045 KNTC/h = 1.08 KNTC/day) ───────
-
-const KNTC_PER_SECOND = 0.045 / 3600   // 0.000012500 KNTC/s
-const SESSION_MAX_S   = 24 * 3600
+// ─── Real-time KNTC display ───────────────────────────────────────────────────
+// In v2 the full 1 KNTC is credited at the moment mine() succeeds — there is no
+// per-second accumulation. This hook simply returns "1.000000" while a session is
+// active so the UI has something to display.
 
 export function useRealTimeKNTC(lastMiningTime: number, isActive: boolean): string {
-  const [kntc, setKntc] = useState('0.000000')
-
-  useEffect(() => {
-    if (!isActive || lastMiningTime === 0) {
-      setKntc('0.000000')
-      return
-    }
-
-    function calculate() {
-      const now     = Math.floor(Date.now() / 1000)
-      const elapsed = Math.min(now - lastMiningTime, SESSION_MAX_S)
-      setKntc((elapsed * KNTC_PER_SECOND).toFixed(6))
-    }
-
-    calculate()
-    const id = setInterval(calculate, 1000)
-    return () => clearInterval(id)
-  }, [lastMiningTime, isActive])
-
-  return kntc
-}
-
-// ─── Legacy — kept for any existing callers ───────────────────────────────────
-
-export function useRealTimeMining(
-  lastMiningTime: number,
-  ratePerHour: bigint,
-  accumulatedPoints: bigint,
-): bigint {
-  const [livePoints, setLivePoints] = useState<bigint>(accumulatedPoints)
-
-  useEffect(() => {
-    if (ratePerHour === 0n || lastMiningTime === 0) {
-      setLivePoints(accumulatedPoints)
-      return
-    }
-
-    function calculate() {
-      const now        = Math.floor(Date.now() / 1000)
-      const elapsed    = Math.min(now - lastMiningTime, SESSION_MAX_S)
-      const sessionPts = (BigInt(elapsed) * ratePerHour) / 3600n
-      setLivePoints(accumulatedPoints + sessionPts)
-    }
-
-    calculate()
-    const id = setInterval(calculate, 1000)
-    return () => clearInterval(id)
-  }, [lastMiningTime, ratePerHour, accumulatedPoints])
-
-  return livePoints
+  if (!isActive || lastMiningTime === 0) return '0.000000'
+  return '1.000000'
 }
 
 // ─── Mining history events ────────────────────────────────────────────────────
 
 export interface MiningEvent {
-  user:          `0x${string}`
-  cycleId:       bigint
-  ratePerHour:   bigint  // pts/h (new field)
-  tier:          number
-  timestamp:     number
-  txHash:        `0x${string}`
-  blockNumber:   bigint
+  user:        `0x${string}`
+  sessionId:   bigint
+  kntcEarned:  bigint
+  timestamp:   number
+  txHash:      `0x${string}`
+  blockNumber: bigint
+  // legacy alias
+  cycleId:     bigint
+  ratePerHour: bigint
+  tier:        number
 }
 
 async function fetchMiningEvents(userAddress?: `0x${string}`): Promise<MiningEvent[]> {
@@ -208,12 +158,10 @@ async function fetchMiningEvents(userAddress?: `0x${string}`): Promise<MiningEve
         type: 'event',
         name: 'MiningSessionStarted',
         inputs: [
-          { name: 'user',              type: 'address', indexed: true  },
-          { name: 'cycleId',           type: 'uint256', indexed: true  },
-          { name: 'ratePerHour',       type: 'uint256', indexed: false },
-          { name: 'tier',              type: 'uint8',   indexed: false },
-          { name: 'timestamp',         type: 'uint256', indexed: false },
-          { name: 'totalPointsMinted', type: 'uint256', indexed: false },
+          { name: 'user',       type: 'address', indexed: true  },
+          { name: 'sessionId',  type: 'uint256', indexed: true  },
+          { name: 'kntcEarned', type: 'uint256', indexed: false },
+          { name: 'timestamp',  type: 'uint256', indexed: false },
         ],
       } as const,
       args:      userAddress ? { user: userAddress } : undefined,
@@ -223,12 +171,15 @@ async function fetchMiningEvents(userAddress?: `0x${string}`): Promise<MiningEve
 
     return logs.map(l => ({
       user:        l.args.user!,
-      cycleId:     l.args.cycleId!,
-      ratePerHour: l.args.ratePerHour!,
-      tier:        Number(l.args.tier ?? 1),
+      sessionId:   l.args.sessionId!,
+      kntcEarned:  l.args.kntcEarned!,
       timestamp:   Number(l.args.timestamp!),
       txHash:      l.transactionHash,
       blockNumber: l.blockNumber,
+      // legacy aliases
+      cycleId:     l.args.sessionId!,
+      ratePerHour: l.args.kntcEarned!,
+      tier:        1,
     })).reverse()
   } catch {
     return []
@@ -250,11 +201,9 @@ export type MineStatus = 'idle' | 'watching' | 'confirming' | 'mining' | 'succes
 
 export function useMineAction(address?: `0x${string}`) {
   const queryClient = useQueryClient()
-  const [status,      setStatus]      = useState<MineStatus>('idle')
-  const [txHash,      setTxHash]      = useState<`0x${string}` | null>(null)
-  const [ratePerHour, setRatePerHour] = useState<bigint | null>(null)
-  const [tier,        setTier]        = useState<number | null>(null)
-  const [error,       setError]       = useState<string | null>(null)
+  const [status,  setStatus]  = useState<MineStatus>('idle')
+  const [txHash,  setTxHash]  = useState<`0x${string}` | null>(null)
+  const [error,   setError]   = useState<string | null>(null)
 
   const execute = useCallback(async () => {
     if (!address) { setError('Wallet not connected'); return }
@@ -263,8 +212,6 @@ export function useMineAction(address?: `0x${string}`) {
 
     setStatus('confirming')
     setError(null)
-    setRatePerHour(null)
-    setTier(null)
     setTxHash(null)
 
     try {
@@ -280,37 +227,20 @@ export function useMineAction(address?: `0x${string}`) {
       })
       setTxHash(hash)
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash })
-
-      for (const log of receipt.logs) {
-        if (log.address.toLowerCase() !== MINING_ADDRESS.toLowerCase()) continue
-        try {
-          const { decodeEventLog } = await import('viem')
-          const decoded = decodeEventLog({
-            abi:       KINETIC_MINING_ABI,
-            eventName: 'MiningSessionStarted',
-            data:      log.data,
-            topics:    log.topics as [`0x${string}`, ...`0x${string}`[]],
-          })
-          if (decoded.args && 'ratePerHour' in decoded.args) setRatePerHour(decoded.args.ratePerHour as bigint)
-          if (decoded.args && 'tier'        in decoded.args) setTier(Number(decoded.args.tier))
-          break
-        } catch { /* try next log */ }
-      }
+      await publicClient.waitForTransactionReceipt({ hash })
 
       setStatus('success')
       queryClient.invalidateQueries({ queryKey: ['userDashboard', address] })
       queryClient.invalidateQueries({ queryKey: ['miningEvents'] })
       queryClient.invalidateQueries({ queryKey: ['protocolStats'] })
-      queryClient.invalidateQueries({ queryKey: ['currentRank'] })
     } catch (err) {
       setStatus('error')
       const msg = err instanceof Error ? err.message : String(err)
       setError(
-        msg.includes('cooldown active')  ? 'Mining cooldown active. Wait for next cycle.'   :
-        msg.includes('User rejected')    ? 'Transaction rejected.'                           :
-        msg.includes('pool depleted')    ? 'Point pool depleted.'                           :
-        'Transaction failed. Try again.'
+        msg.includes('cooldown active')  ? 'Cooldown aktif — tunggu 24 jam antar sesi.' :
+        msg.includes('User rejected')    ? 'Transaksi dibatalkan.' :
+        msg.includes('pool depleted')    ? 'Mining pool habis.' :
+        'Transaksi gagal. Coba lagi.'
       )
     }
   }, [address, queryClient])
@@ -318,12 +248,11 @@ export function useMineAction(address?: `0x${string}`) {
   const reset = useCallback(() => {
     setStatus('idle')
     setTxHash(null)
-    setRatePerHour(null)
-    setTier(null)
     setError(null)
   }, [])
 
-  return { status, txHash, ratePerHour, tier, error, execute, reset }
+  // Legacy aliases returned for backward compat with Mine.tsx
+  return { status, txHash, ratePerHour: null as bigint | null, tier: null as number | null, error, execute, reset }
 }
 
 // ─── Claim action (post-TGE) ──────────────────────────────────────────────────
@@ -366,8 +295,8 @@ export function useClaimAction(address?: `0x${string}`) {
       setStatus('error')
       const msg = err instanceof Error ? err.message : String(err)
       setError(
-        msg.includes('TGE not active')   ? 'TGE belum aktif. Claim akan dibuka saat peluncuran.' :
-        msg.includes('no points')        ? 'Tidak ada kredit untuk diklaim.' :
+        msg.includes('TGE not active')   ? 'TGE belum aktif. Claim dibuka saat peluncuran.' :
+        msg.includes('no KNTC')          ? 'Tidak ada KNTC untuk diklaim.' :
         msg.includes('User rejected')    ? 'Transaksi dibatalkan.' :
         'Claim gagal. Coba lagi.'
       )
@@ -405,4 +334,18 @@ export function useMiningCountdown(cooldownSeconds: number) {
     : 1
 
   return { remaining, progress }
+}
+
+// ─── Legacy stubs — kept so existing callers don't break ─────────────────────
+
+export function useCurrentRank() {
+  return { data: { rank: 1 as const, quotaFillPct: 0 }, isLoading: false }
+}
+
+export function useRealTimeMining(
+  _lastMiningTime: number,
+  _ratePerHour: bigint,
+  accumulatedPoints: bigint,
+): bigint {
+  return accumulatedPoints
 }

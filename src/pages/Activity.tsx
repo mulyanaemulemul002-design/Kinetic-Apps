@@ -1,18 +1,16 @@
 import { useState } from 'react'
 import { Search, RefreshCw, Activity, Filter } from 'lucide-react'
-import { useMiningEvents, useProtocolStats, useCurrentRank } from '../hooks/useMining'
+import { useMiningEvents, useProtocolStats } from '../hooks/useMining'
 import { useNetworkStatus } from '../hooks/useAdEvents'
 import EventRow from '../components/EventRow'
 import EmptyState from '../components/EmptyState'
-import { formatPoints, RANK_COLOR, RANK_NAME, RANK_1_LIMIT_PTS, RANK_2_LIMIT_PTS, RANK_3_LIMIT_PTS } from '../lib/chain'
+import { formatKNTC } from '../lib/chain'
 
 export default function ActivityPage() {
   const [search, setSearch] = useState('')
   const { data: events, isLoading, refetch, dataUpdatedAt } = useMiningEvents()
   const { data: protocol } = useProtocolStats()
   const { data: network  } = useNetworkStatus()
-  const { data: rankData } = useCurrentRank()
-
   const filtered = (events ?? []).filter(e =>
     !search ||
     e.user.toLowerCase().includes(search.toLowerCase()) ||
@@ -20,11 +18,11 @@ export default function ActivityPage() {
   )
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString() : null
-  const rank    = (rankData?.rank ?? 1) as 1 | 2 | 3
-  const rankPct = rankData?.quotaFillPct ?? 0
-  const rankColor = RANK_COLOR[rank]
-  const rankLimit = rank === 1 ? RANK_1_LIMIT_PTS : rank === 2 ? RANK_2_LIMIT_PTS : RANK_3_LIMIT_PTS
-  const rankStart = rank === 1 ? 0n : rank === 2 ? RANK_1_LIMIT_PTS : RANK_2_LIMIT_PTS
+  const POOL_TOTAL = 10_000_000_000n * 10n ** 18n
+  const minted     = protocol?.totalPointsMinted ?? 0n
+  const mintedPct  = POOL_TOTAL > 0n
+    ? Math.min(100, Number((minted * 10000n) / POOL_TOTAL) / 100)
+    : 0
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6 animate-fade-in">
@@ -43,24 +41,26 @@ export default function ActivityPage() {
         </button>
       </div>
 
-      {/* Rank bar */}
+      {/* Mining pool progress */}
       <div className="card p-4 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full" style={{ background: rankColor }} />
-            <span className="text-white text-sm font-semibold">{RANK_NAME[rank]}</span>
+            <div className="w-2 h-2 rounded-full animate-pulse-glacier" style={{ background: '#A8E6FF' }} />
+            <span className="text-white text-sm font-semibold">Mining Pool</span>
           </div>
-          <span className="font-mono text-xs" style={{ color: rankColor }}>{rankPct}% quota filled</span>
+          <span className="font-mono text-xs text-[#A8E6FF]">
+            {formatKNTC(minted)} / 10B KNTC credited
+          </span>
         </div>
         <div className="h-1.5 rounded-full bg-[rgba(168,230,255,0.07)] overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${rankPct}%`, background: rankColor }}
+            style={{ width: `${mintedPct}%`, background: 'linear-gradient(90deg,#5ac8f0,#A8E6FF)' }}
           />
         </div>
         <div className="flex justify-between text-subtle text-xs">
-          <span>{formatPoints(rankStart)} pts</span>
-          <span>{formatPoints(rankLimit)} pts</span>
+          <span>1 session = 1 KNTC · Locked until TGE</span>
+          <span>{mintedPct.toFixed(4)}%</span>
         </div>
       </div>
 
@@ -68,9 +68,9 @@ export default function ActivityPage() {
       {protocol && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { l: 'Total Sessions', v: protocol.totalCycles.toString(),               c: '#A8E6FF' },
-            { l: 'Unique Miners',  v: protocol.uniqueMiners.toString(),              c: '#A8E6FF' },
-            { l: 'Points Minted',  v: `${formatPoints(protocol.totalPointsMinted)} pts`, c: '#60ffb0' },
+            { l: 'Total Sessions', v: protocol.totalCycles.toString(),   c: '#A8E6FF' },
+            { l: 'Unique Miners',  v: protocol.uniqueMiners.toString(),  c: '#A8E6FF' },
+            { l: 'KNTC Credited',  v: formatKNTC(minted),               c: '#60ffb0' },
           ].map(({ l, v, c }) => (
             <div key={l} className="stat-box text-center">
               <div className="text-xl font-bold tabular-nums" style={{ color: c }}>{v}</div>

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { publicClient, MINING_ADDRESS, AD_WATCHED_EVENT } from '../lib/chain'
+import { publicClient } from '../lib/chain'
 
 export interface AdEvent {
   user:        `0x${string}`
@@ -9,35 +9,13 @@ export interface AdEvent {
   blockNumber: bigint
 }
 
-async function fetchAdEvents(userAddress?: `0x${string}`): Promise<AdEvent[]> {
-  try {
-    const latest    = await publicClient.getBlockNumber()
-    const fromBlock = latest > 10000n ? latest - 10000n : 0n
-    const logs = await publicClient.getLogs({
-      address: MINING_ADDRESS,
-      event:   AD_WATCHED_EVENT,
-      args:    userAddress ? { user: userAddress } : undefined,
-      fromBlock,
-      toBlock: latest,
-    })
-    return logs.map(l => ({
-      user:        l.args.user!,
-      timestamp:   Number(l.args.timestamp!),
-      reward:      l.args.reward!,
-      txHash:      l.transactionHash,
-      blockNumber: l.blockNumber,
-    })).reverse()
-  } catch {
-    return []
-  }
-}
-
-export function useAdEvents(userAddress?: `0x${string}`) {
+// AdWatched event was removed in v2 — ad watching is implicit in mine()
+export function useAdEvents(_userAddress?: `0x${string}`) {
   return useQuery({
-    queryKey:        ['adEvents', userAddress],
-    queryFn:         () => fetchAdEvents(userAddress),
-    refetchInterval: 30_000,
-    staleTime:       15_000,
+    queryKey:        ['adEvents', _userAddress],
+    queryFn:         async (): Promise<AdEvent[]> => [],
+    refetchInterval: 60_000,
+    staleTime:       30_000,
   })
 }
 

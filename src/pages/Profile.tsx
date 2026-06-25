@@ -17,7 +17,7 @@ export default function Profile() {
   const claim = useClaimAction(address as `0x${string}` | undefined)
 
   const pendingClaim = stats?.pendingClaim    ?? 0n
-  const totalMined   = stats?.totalMined      ?? 0n
+  const totalMined   = stats?.totalEarned     ?? 0n
   const totalClaimed = stats?.totalClaimed    ?? 0n
   const cycleCount   = Number(stats?.cycleCount ?? 0n)
   const tgeActive    = stats?.tgeActive        ?? false
