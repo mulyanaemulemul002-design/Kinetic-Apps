@@ -20,11 +20,6 @@ import {
 
 type Phase = 'idle' | 'ad' | 'mining' | 'result'
 
-// ── Session ring constants ────────────────────────────────────────────────────
-const RING_SIZE   = 220
-const RING_STROKE = 10
-const RING_R      = (RING_SIZE - RING_STROKE) / 2
-const RING_CIRC   = 2 * Math.PI * RING_R
 const SESSION_MAX = 24 * 3600
 
 export default function Mine() {
@@ -69,7 +64,6 @@ export default function Mine() {
 
   // Ring progress: fraction of session remaining (1 = full, 0 = done)
   const sessionProgress  = sessionRemain > 0 ? sessionRemain / SESSION_MAX : 0
-  const ringOffset       = RING_CIRC * (1 - Math.min(sessionProgress, 1))
 
   async function handleAdComplete() {
     setPhase('mining')
