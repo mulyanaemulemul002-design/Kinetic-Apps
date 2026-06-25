@@ -103,9 +103,34 @@ export default function Mine() {
       <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4 py-12 animate-fade-in">
         <div className="w-full max-w-[360px] flex flex-col items-center gap-7">
 
-          <div className="w-20 h-20 rounded-3xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg,#5ac8f0,#A8E6FF)', boxShadow: '0 0 60px rgba(168,230,255,0.28)' }}>
-            <Zap className="w-9 h-9 text-[#001020]" />
+          {/* Live coin preview */}
+          <div className="relative flex items-center justify-center" style={{ width: 240, height: 220 }}>
+            {/* Ambient glow */}
+            <div className="absolute rounded-full pointer-events-none" style={{ inset: -20, background: 'radial-gradient(circle, rgba(90,200,240,0.12) 0%, transparent 68%)', filter: 'blur(20px)' }} />
+            {/* Spinning ring 1 */}
+            <svg className="absolute pointer-events-none" width={240} height={220} style={{ animation: 'orbit 6s linear infinite', transformOrigin: 'center' }}>
+              <ellipse cx={120} cy={110} rx={112} ry={102} fill="none" stroke="rgba(168,230,255,0.4)" strokeWidth={2} strokeDasharray="20 16" strokeLinecap="round" />
+            </svg>
+            {/* Spinning ring 2 reverse */}
+            <svg className="absolute pointer-events-none" width={240} height={220} style={{ animation: 'orbitRev 9s linear infinite', transformOrigin: 'center' }}>
+              <ellipse cx={120} cy={110} rx={100} ry={90} fill="none" stroke="rgba(90,200,240,0.22)" strokeWidth={1.5} strokeDasharray="7 25" strokeLinecap="round" />
+            </svg>
+            {/* Orbiting dot 1 — cyan */}
+            <div className="absolute animate-orbit pointer-events-none" style={{ width: 224, height: 204, top: 8, left: 8, animationDuration: '6s' }}>
+              <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 9, height: 9, borderRadius: '50%', background: '#A8E6FF', boxShadow: '0 0 14px rgba(168,230,255,1), 0 0 28px rgba(168,230,255,0.5)' }} />
+            </div>
+            {/* Orbiting dot 2 — green reverse */}
+            <div className="absolute animate-orbit-reverse pointer-events-none" style={{ width: 200, height: 180, top: 20, left: 20, animationDuration: '9s' }}>
+              <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 6, height: 6, borderRadius: '50%', background: '#60ffb0', boxShadow: '0 0 10px rgba(96,255,176,1)' }} />
+            </div>
+            {/* Coin face */}
+            <div className="relative flex flex-col items-center justify-center select-none"
+              style={{ width: 186, height: 170, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #7ad8f8 0%, #4ab8e8 20%, #1a6890 55%, #082035 100%)', boxShadow: '0 0 36px rgba(90,200,240,0.45), 0 0 70px rgba(168,230,255,0.15), 0 5px 0 rgba(0,20,50,0.9), 0 8px 20px rgba(0,0,0,0.7)' }}>
+              <div className="absolute pointer-events-none" style={{ top: '15%', left: '22%', width: '42%', height: '24%', borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(255,255,255,0.28) 0%, transparent 100%)', filter: 'blur(4px)' }} />
+              <div className="absolute pointer-events-none" style={{ bottom: -5, left: '10%', width: '80%', height: 8, borderRadius: '0 0 50% 50%', background: 'linear-gradient(#0a3860, #041828)', filter: 'blur(1px)' }} />
+              <Zap className="w-7 h-7 mb-1" style={{ color: '#001020', filter: 'drop-shadow(0 0 6px rgba(168,230,255,0.6))' }} />
+              <span className="font-black text-xl tracking-[4px]" style={{ color: '#001020' }}>MINE</span>
+            </div>
           </div>
 
           <div className="text-center">
