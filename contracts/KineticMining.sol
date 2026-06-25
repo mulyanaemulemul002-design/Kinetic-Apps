@@ -79,7 +79,7 @@ contract KineticMining is Ownable, ReentrancyGuard {
         if (u.hasEverMined) {
             require(
                 block.timestamp >= u.lastMineAt + SESSION_DURATION,
-                "KineticMining: cooldown active — wait 24h between sessions"
+                "KineticMining: cooldown active - wait 24h between sessions"
             );
         }
 
@@ -108,7 +108,7 @@ contract KineticMining is Ownable, ReentrancyGuard {
     /// @notice Transfer all pending KNTC to the caller.
     ///         Only callable after TGE is activated by the owner.
     function claimTokens() external nonReentrant {
-        require(isTGEActive, "KineticMining: TGE not active — claim opens at launch");
+        require(isTGEActive, "KineticMining: TGE not active - claim opens at launch");
 
         UserData storage u = users[msg.sender];
         uint256 amount = u.pendingKNTC;

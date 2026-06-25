@@ -2,6 +2,7 @@
   "name": "kinetic-dao-contracts",
   "private": true,
   "version": "0.2.0",
+  "type": "commonjs",
   "scripts": {
     "compile": "hardhat compile",
     "deploy": "hardhat compile && node ../scripts/deploy-all.mjs"
