@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Activity, Home, Menu, X, Zap, Pickaxe, User } from 'lucide-react'
+import { Activity, Home, Menu, X, Pickaxe, User } from 'lucide-react'
 import NetworkBadge from './NetworkBadge'
 import WalletButton from './WalletButton'
 import { useWalletContext } from '../context/WalletContext'
@@ -14,8 +14,8 @@ const baseLinks = [
 ]
 
 export default function Navbar() {
-  const { pathname }          = useLocation()
-  const [open, setOpen]       = useState(false)
+  const { pathname }            = useLocation()
+  const [open, setOpen]         = useState(false)
   const { address, walletType } = useWalletContext()
 
   const links = [
@@ -24,17 +24,21 @@ export default function Navbar() {
   ]
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-[rgba(168,230,255,0.06)] bg-[#001020]/85 backdrop-blur-xl">
+    <nav className="sticky top-0 z-50 border-b border-[rgba(168,230,255,0.06)] bg-[#001020]/90 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg,#5ac8f0,#A8E6FF)', boxShadow: '0 0 16px rgba(168,230,255,0.35)' }}>
-              <Zap className="w-4 h-4 text-[#001020]" />
+          <Link to="/" className="flex items-center gap-2.5 group shrink-0">
+            <div className="relative w-8 h-8 shrink-0">
+              <img
+                src="/favicon.png"
+                alt="KineticDAO"
+                className="w-8 h-8 rounded-xl object-cover transition-all duration-300 group-hover:shadow-[0_0_20px_rgba(168,230,255,0.5)]"
+                style={{ boxShadow: '0 0 12px rgba(168,230,255,0.25)' }}
+              />
             </div>
-            <span className="font-bold text-white text-[17px] tracking-tight">
+            <span className="font-bold text-white text-[17px] tracking-tight hidden xs:block sm:block">
               Kinetic<span className="gradient-text">DAO</span>
             </span>
           </Link>
@@ -58,7 +62,6 @@ export default function Navbar() {
           {/* Right side */}
           <div className="hidden md:flex items-center gap-3">
             <NetworkBadge />
-            {/* Show wallet address for embedded wallets, MetaMask button otherwise */}
             {address && walletType === 'embedded' ? (
               <div className="flex items-center gap-2">
                 <Link to="/profile"
