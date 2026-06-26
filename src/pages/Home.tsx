@@ -11,7 +11,7 @@ const features = [
   {
     icon: Pickaxe,
     title: 'Ad-to-Earn Mining',
-    desc: 'Watch a 15-second ad and start a 24-hour mining session — earn 0.045 KNTC/h at a fixed rate, recorded on-chain.',
+    desc: 'Watch a 15-second ad and start a 24-hour mining session — earn exactly 1 KNTC per session, recorded on-chain.',
     color: '#A8E6FF',
   },
   {

@@ -24,11 +24,11 @@ export default function MiningResult({ txHash, onReset }: MiningResultProps) {
 
       <div className="animate-count-up">
         <div className="text-5xl font-black tabular-nums mb-1" style={{ color: '#60ffb0' }}>
-          0.045 KNTC/h
+          +1 KNTC
         </div>
-        <div className="font-bold text-lg mb-1 text-white">Rate Active</div>
+        <div className="font-bold text-lg mb-1 text-white">Credited On-Chain</div>
         <div className="text-muted text-xs mb-1">
-          1.08 KNTC over 24h — accrues linearly on-chain
+          1 KNTC earned — claimable after TGE activation
         </div>
       </div>
 

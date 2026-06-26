@@ -117,7 +117,7 @@ export default function Mine() {
             {[
               'Watch 15–30s ads to trigger 24h mining sessions',
               'Every session recorded on the KNTC blockchain',
-              'Fixed rate: 0.045 KNTC/h · 1.08 KNTC per day',
+              'Each session earns exactly 1 KNTC — credited on-chain instantly',
             ].map(text => (
               <li key={text} className="flex items-start gap-3 text-sm text-muted">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#A8E6FF] mt-[5px] shrink-0" />
@@ -259,7 +259,7 @@ export default function Mine() {
                 </div>
                 <span className="text-xs font-bold px-2 py-1 rounded-lg"
                   style={{ background: 'rgba(96,255,176,0.08)', border: '1px solid rgba(96,255,176,0.18)', color: '#60ffb0' }}>
-                  0.045 KNTC/h
+                  1 KNTC / session
                 </span>
               </div>
 
@@ -364,7 +364,7 @@ export default function Mine() {
                       </span>
                       <span className="font-bold text-base" style={{ color: '#A8E6FF' }}>KNTC</span>
                     </div>
-                    <span className="text-[10px]" style={{ color: '#4a6a7a' }}>accumulating live · 0.045 KNTC/h</span>
+                    <span className="text-[10px]" style={{ color: '#4a6a7a' }}>credited on-chain · 1 KNTC this session</span>
                   </div>
                 )}
 
@@ -387,7 +387,7 @@ export default function Mine() {
                     <span className="text-[10px] font-medium" style={{ color: '#4a6a7a' }}>Mining rate</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <Zap className="w-3.5 h-3.5 shrink-0" style={{ color: '#60ffb0' }} />
-                      <span className="font-mono font-bold text-sm" style={{ color: '#60ffb0' }}>0.045 / h</span>
+                      <span className="font-mono font-bold text-sm" style={{ color: '#60ffb0' }}>1 KNTC</span>
                     </div>
                   </div>
                 </div>
@@ -407,9 +407,9 @@ export default function Mine() {
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Cycles',  value: cycleCount.toString(), color: '#A8E6FF' },
-              { label: 'KNTC/h',  value: '0.045',               color: '#60ffb0' },
-              { label: 'Per Day', value: '1.08',                 color: '#ffd060' },
+              { label: 'Sessions', value: cycleCount.toString(), color: '#A8E6FF' },
+              { label: 'Per Session', value: '1',              color: '#60ffb0' },
+              { label: 'KNTC',    value: cycleCount.toString(), color: '#ffd060' },
             ].map(({ label, value, color }) => (
               <div key={label} className="card p-4 flex flex-col items-center gap-1">
                 <span className="font-black text-xl" style={{ color }}>{value}</span>
@@ -493,8 +493,8 @@ export default function Mine() {
               { l: 'Network',    v: 'Maculatus Testnet' },
               { l: 'Chain ID',   v: '10778'             },
               { l: 'Session',    v: '24 hours'          },
-              { l: 'Rate',       v: '0.045 KNTC/h'      },
-              { l: 'Conversion', v: '1,250 pts = 1 KNTC'},
+              { l: 'Rate',       v: '1 KNTC / session'  },
+              { l: 'Cooldown',   v: '24 hours'          },
               { l: 'TGE',        v: tgeActive ? 'Active' : 'Pre-Launch' },
             ].map(({ l, v }) => (
               <div key={l} className="flex justify-between gap-2">

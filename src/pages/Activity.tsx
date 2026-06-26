@@ -155,7 +155,7 @@ export default function ActivityPage() {
         </p>
         <p className="text-muted text-sm leading-relaxed mt-2">
           <span className="text-[#ffd060] font-semibold">Fixed mining rate:</span>{' '}
-          0.045 KNTC/h per session. Rank halving auto-applies at 500B pts (Rank 2, ×0.5) and 750B pts (Rank 3, ×0.25).
+          1 KNTC per session. Each session lasts 24 hours with a 24-hour cooldown between sessions.
         </p>
       </div>
     </div>
